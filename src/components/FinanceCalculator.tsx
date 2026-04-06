@@ -104,6 +104,48 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
     }
   }, [resultado]);
 
+  // Auto-scroll para as opções quando geradas
+  useEffect(() => {
+    if (opcoes.length > 0) {
+      setTimeout(() => {
+        document.getElementById('opcoes-parcelamento')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [opcoes]);
+
+  const generateWhatsAppUrl = () => {
+    let message = `*PROPOSTA DE COMPRA - FRANKLIN MOTOS*%0A%0A` +
+      `*CLIENTE:* ${buyerData.nome}%0A` +
+      `*CPF:* ${buyerData.cpf}%0A` +
+      `*CEP:* ${buyerData.cep}%0A` +
+      `*TELEFONE:* ${buyerData.telefone}%0A%0A` +
+      `*MOTO:* ${moto.marcaModelo}%0A` +
+      `*PLACA:* ${moto.placa}%0A%0A` +
+      `*DETALHES DA PROPOSTA:*%0A`;
+
+    if (paymentMethod === 'avista') {
+      message += `- Pagamento: À Vista%0A` +
+        `- Valor Original: ${formatCurrency(moto.precoAVista)}%0A` +
+        `- Desconto: R$ 500,00%0A` +
+        `- Valor Final: ${formatCurrency(moto.precoAVista - 500)}%0A%0A`;
+    } else if (paymentMethod === 'financiamento') {
+      message += `- Pagamento: Financiamento Bancário%0A` +
+        `- Banco: ${banco}%0A` +
+        `- Valor Financiado: ${formatCurrency(Number(valorFinanciadoBancario) || 0)}%0A` +
+        `- Valor da Moto: ${formatCurrency(moto.precoAVista)}%0A%0A`;
+    } else {
+      message += `- Pagamento: Cartão de Crédito%0A` +
+        `- Valor da Moto: ${formatCurrency(moto.precoAVista)}%0A` +
+        `- Entrada: ${formatCurrency(resultado!.entrada)}%0A` +
+        `- Parcelamento: ${resultado!.parcelas}x de ${formatCurrency(resultado!.valorParcela)}%0A` +
+        `- Valor Total (com encargos): ${formatCurrency(resultado!.valorFinal)}%0A%0A`;
+    }
+
+    message += `Tenho interesse nesta proposta e gostaria de prosseguir com o pedido.`;
+
+    return `https://wa.me/558532332200?text=${message}`;
+  };
+
   const handleConfirmAction = async () => {
     if (isAdmin) {
       // Admin approves directly
@@ -178,36 +220,7 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
       };
       await setDoc(doc(collection(db, 'sales')), saleRecord);
 
-      let message = `*PROPOSTA DE COMPRA - FRANKLIN MOTOS*%0A%0A` +
-        `*CLIENTE:* ${buyerData.nome}%0A` +
-        `*CPF:* ${buyerData.cpf}%0A` +
-        `*CEP:* ${buyerData.cep}%0A` +
-        `*TELEFONE:* ${buyerData.telefone}%0A%0A` +
-        `*MOTO:* ${moto.marcaModelo}%0A` +
-        `*PLACA:* ${moto.placa}%0A%0A` +
-        `*DETALHES DA PROPOSTA:*%0A`;
-
-      if (paymentMethod === 'avista') {
-        message += `- Pagamento: À Vista%0A` +
-          `- Valor Original: ${formatCurrency(moto.precoAVista)}%0A` +
-          `- Desconto: R$ 500,00%0A` +
-          `- Valor Final: ${formatCurrency(moto.precoAVista - 500)}%0A%0A`;
-      } else if (paymentMethod === 'financiamento') {
-        message += `- Pagamento: Financiamento Bancário%0A` +
-          `- Banco: ${banco}%0A` +
-          `- Valor Financiado: ${formatCurrency(Number(valorFinanciadoBancario) || 0)}%0A` +
-          `- Valor da Moto: ${formatCurrency(moto.precoAVista)}%0A%0A`;
-      } else {
-        message += `- Pagamento: Cartão de Crédito%0A` +
-          `- Valor da Moto: ${formatCurrency(moto.precoAVista)}%0A` +
-          `- Entrada: ${formatCurrency(resultado!.entrada)}%0A` +
-          `- Parcelamento: ${resultado!.parcelas}x de ${formatCurrency(resultado!.valorParcela)}%0A` +
-          `- Valor Total (com encargos): ${formatCurrency(resultado!.valorFinal)}%0A%0A`;
-      }
-
-      message += `Tenho interesse nesta proposta e gostaria de prosseguir com o pedido.`;
-
-      const whatsappUrl = `https://wa.me/558532332200?text=${message}`;
+      const whatsappUrl = generateWhatsAppUrl();
       window.open(whatsappUrl, '_blank');
       setStep('success');
     } catch (error) {
@@ -222,21 +235,37 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
         <div className="w-24 h-24 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_30px_rgba(22,163,74,0.4)]">
           <CheckCircle2 size={48} className="text-white" />
         </div>
-        <h2 className="text-4xl font-black text-white uppercase tracking-tight mb-4">Proposta <span className="text-green-500">Enviada!</span></h2>
-        <p className="text-zinc-400 text-lg mb-10 leading-relaxed">
+        <h2 className="text-4xl font-black text-white uppercase tracking-tight mb-4">Proposta <span className="text-green-500">Salva!</span></h2>
+        <p className="text-zinc-400 text-lg mb-6 leading-relaxed">
           Obrigado pelo seu contato, <strong>{buyerData.nome}</strong>!<br/>
-          Sua proposta foi enviada com sucesso para nossa equipe.
+          Sua proposta foi salva em nosso sistema com sucesso.
         </p>
-        <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800 mb-10 inline-block text-left">
-          <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest mb-2">Próximo Passo:</p>
-          <p className="text-white font-medium">Por favor, aguarde nossa resposta via WhatsApp. Entraremos em contato em breve para finalizar seu pedido.</p>
+        <div className="bg-zinc-950 p-6 rounded-2xl border border-orange-600/30 mb-8 inline-block text-left max-w-lg">
+          <div className="flex items-start gap-3">
+            <Info className="text-orange-500 shrink-0 mt-1" size={24} />
+            <div>
+              <p className="text-orange-500 text-sm font-bold uppercase tracking-widest mb-2">Atenção: Passo Importante</p>
+              <p className="text-white font-medium text-sm leading-relaxed">
+                Para agilizar o seu atendimento e garantir a reserva, é muito importante que você também nos envie a proposta via WhatsApp.
+              </p>
+            </div>
+          </div>
         </div>
-        <button
-          onClick={onCancel}
-          className="block w-full py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-all uppercase tracking-wider text-sm shadow-lg"
-        >
-          Voltar para o Estoque
-        </button>
+        <div className="space-y-4 max-w-md mx-auto">
+          <button
+            onClick={() => window.open(generateWhatsAppUrl(), '_blank')}
+            className="flex items-center justify-center gap-2 w-full py-4 bg-[#25D366] text-white rounded-xl font-black hover:bg-[#20BD5A] transition-all uppercase tracking-wider text-sm shadow-lg"
+          >
+            <MessageCircle size={20} />
+            Re-enviar via WhatsApp
+          </button>
+          <button
+            onClick={onCancel}
+            className="block w-full py-4 bg-zinc-800 text-white rounded-xl font-black hover:bg-zinc-700 transition-all uppercase tracking-wider text-sm"
+          >
+            Voltar para as Motos
+          </button>
+        </div>
       </div>
     );
   }
@@ -608,7 +637,7 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
 
       {/* Opções de Parcelamento */}
       {opcoes.length > 0 && (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div id="opcoes-parcelamento" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center gap-2 mb-4">
             <Info className="text-orange-500" size={20} />
             <h3 className="text-xl font-black text-white uppercase tracking-tight">Selecione um <span className="text-orange-600">Plano</span></h3>

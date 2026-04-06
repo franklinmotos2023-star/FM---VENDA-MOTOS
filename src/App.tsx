@@ -198,7 +198,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex flex-col cursor-pointer" onClick={() => setCurrentView('list')}>
             <h1 className="text-2xl font-black tracking-tighter uppercase text-white leading-none">
-              Franklin <span className="text-orange-600">Motos</span>
+              Franklin <span className="text-orange-600">Motos</span> - Vendas
             </h1>
             <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mt-1">
               Especialista em Scooter

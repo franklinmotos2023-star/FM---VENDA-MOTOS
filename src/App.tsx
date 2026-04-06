@@ -7,11 +7,11 @@ import AdminHistory from './components/AdminHistory';
 import AdminRates from './components/AdminRates';
 import AdminPurchases from './components/AdminPurchases';
 import UserProfileModal from './components/UserProfileModal';
-import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown } from 'lucide-react';
+import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench } from 'lucide-react';
 import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, deleteDoc, handleFirestoreError, OperationType } from './firebase';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'list' | 'add' | 'edit' | 'finance'>('list');
+  const [currentView, setCurrentView] = useState<'list' | 'add' | 'edit' | 'finance' | 'acessorios'>('list');
   const [adminTab, setAdminTab] = useState<'estoque' | 'historico' | 'taxas' | 'compra'>('estoque');
   const [motos, setMotos] = useState<Moto[]>([]);
   const [selectedMoto, setSelectedMoto] = useState<Moto | null>(null);
@@ -198,7 +198,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex flex-col cursor-pointer" onClick={() => setCurrentView('list')}>
             <h1 className="text-2xl font-black tracking-tighter uppercase text-white leading-none">
-              Franklin <span className="text-orange-600">Motos</span> - Vendas
+              FM <span className="text-orange-600">- Vendas</span>
             </h1>
             <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mt-1">
               Especialista em Scooter
@@ -217,7 +217,17 @@ export default function App() {
                         : 'text-zinc-400 hover:text-orange-500'
                     }`}
                   >
-                    <Package size={16} /> Estoque
+                    <Package size={16} /> Motos
+                  </button>
+                  <button
+                    onClick={() => { setCurrentView('acessorios'); }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
+                      currentView === 'acessorios'
+                        ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
+                        : 'text-zinc-400 hover:text-orange-500'
+                    }`}
+                  >
+                    <Wrench size={16} /> Acessórios
                   </button>
                   <button
                     onClick={() => { setCurrentView('list'); setAdminTab('historico'); }}
@@ -257,10 +267,11 @@ export default function App() {
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-white uppercase tracking-wider"
                   >
-                    {adminTab === 'estoque' && <><Package size={16} /> Estoque</>}
-                    {adminTab === 'historico' && <><History size={16} /> Histórico</>}
-                    {adminTab === 'compra' && <><ShoppingCart size={16} /> Compra</>}
-                    {adminTab === 'taxas' && <><Percent size={16} /> Taxas</>}
+                    {currentView === 'acessorios' && <><Wrench size={16} /> Acessórios</>}
+                    {currentView !== 'acessorios' && adminTab === 'estoque' && <><Package size={16} /> Motos</>}
+                    {currentView !== 'acessorios' && adminTab === 'historico' && <><History size={16} /> Histórico</>}
+                    {currentView !== 'acessorios' && adminTab === 'compra' && <><ShoppingCart size={16} /> Compra</>}
+                    {currentView !== 'acessorios' && adminTab === 'taxas' && <><Percent size={16} /> Taxas</>}
                     <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
@@ -269,15 +280,23 @@ export default function App() {
                       <button
                         onClick={() => { setCurrentView('list'); setAdminTab('estoque'); setIsMobileMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
-                          adminTab === 'estoque' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                          adminTab === 'estoque' && currentView === 'list' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                         }`}
                       >
-                        <Package size={16} /> Estoque
+                        <Package size={16} /> Motos
+                      </button>
+                      <button
+                        onClick={() => { setCurrentView('acessorios'); setIsMobileMenuOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
+                          currentView === 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                        }`}
+                      >
+                        <Wrench size={16} /> Acessórios
                       </button>
                       <button
                         onClick={() => { setCurrentView('list'); setAdminTab('historico'); setIsMobileMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
-                          adminTab === 'historico' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                          adminTab === 'historico' && currentView !== 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                         }`}
                       >
                         <History size={16} /> Histórico
@@ -303,16 +322,64 @@ export default function App() {
                 </div>
               </>
             ) : (
-              <button
-                onClick={() => setCurrentView('list')}
-                className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${
-                  currentView === 'list' 
-                    ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.5)]' 
-                    : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-900'
-                }`}
-              >
-                Estoque
-              </button>
+              <>
+                {/* Desktop Tabs */}
+                <div className="hidden md:flex gap-2">
+                  <button
+                    onClick={() => setCurrentView('list')}
+                    className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${
+                      currentView === 'list' 
+                        ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.5)]' 
+                        : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-900'
+                    }`}
+                  >
+                    Motos
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('acessorios')}
+                    className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${
+                      currentView === 'acessorios' 
+                        ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.5)]' 
+                        : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-900'
+                    }`}
+                  >
+                    Acessórios
+                  </button>
+                </div>
+
+                {/* Mobile Tabs Dropdown */}
+                <div className="relative md:hidden">
+                  <button 
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-white uppercase tracking-wider"
+                  >
+                    {currentView === 'list' && <><Package size={16} /> Motos</>}
+                    {currentView === 'acessorios' && <><Wrench size={16} /> Acessórios</>}
+                    <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {isMobileMenuOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
+                      <button
+                        onClick={() => { setCurrentView('list'); setIsMobileMenuOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
+                          currentView === 'list' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                        }`}
+                      >
+                        <Package size={16} /> Motos
+                      </button>
+                      <button
+                        onClick={() => { setCurrentView('acessorios'); setIsMobileMenuOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
+                          currentView === 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                        }`}
+                      >
+                        <Wrench size={16} /> Acessórios
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
             
             <div className="h-8 w-px bg-zinc-800 mx-2" />
@@ -333,7 +400,6 @@ export default function App() {
               </div>
             ) : (
               <div className="flex items-center gap-4">
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest hidden sm:block">Acesso Restrito</span>
                 <button
                   onClick={handleLogin}
                   disabled={isLoggingIn}
@@ -350,6 +416,20 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 print:p-0 print:max-w-none">
+        {currentView === 'acessorios' && (
+          <div className="flex flex-col items-center justify-center py-32 text-center animate-in fade-in zoom-in duration-500">
+            <div className="w-24 h-24 bg-orange-600/10 rounded-full flex items-center justify-center mb-6">
+              <Wrench size={48} className="text-orange-500" />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tight mb-4">
+              Em Andamento
+            </h2>
+            <p className="text-zinc-400 text-lg max-w-md">
+              A nossa seção de acessórios estará disponível em breve. Fique ligado!
+            </p>
+          </div>
+        )}
+
         {currentView === 'list' && adminTab === 'estoque' && (
           <MotoList
             motos={motos}

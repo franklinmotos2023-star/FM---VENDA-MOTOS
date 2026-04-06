@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: motos
+    // Document ID: auto-generated
+    // Fields:
+    //   - id: string
+    //   - placa: string (required)
+    //   - marcaModelo: string (required)
+    //   - anoFabricacao: number (required)
+    //   - anoModelo: number (required)
+    //   - quilometragem: string
+    //   - precoAVista: number (required)
+    //   - statusRevisao: string
+    //   - statusDut: string
+    //   - fotos: list (strings)
+    //
+    // Collection: users
+    // Document ID: uid
+    // Fields:
+    //   - uid: string
+    //   - email: string
+    //   - role: string (admin, user)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "franklinmotos2023@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidMoto(data) {
+      return data.keys().hasAll(['placa', 'marcaModelo', 'anoFabricacao', 'anoModelo', 'precoAVista']) &&
+             data.placa is string && data.placa.size() > 0 &&
+             data.marcaModelo is string && data.marcaModelo.size() > 0 &&
+             data.anoFabricacao is int &&
+             data.anoModelo is int &&
+             data.precoAVista is number && data.precoAVista >= 0 &&
+             (!('precoAntigo' in data) || data.precoAntigo is number) &&
+             (!('cambio' in data) || data.cambio is string) &&
+             (!('combustivel' in data) || data.combustivel is string) &&
+             (!('descricao' in data) || data.descricao is string) &&
+             (!('equipamentos' in data) || data.equipamentos is list) &&
+             (!('planos' in data) || data.planos is list) &&
+             (!('fotos' in data) || data.fotos is list);
+    }
+
+    function isValidSale(data) {
+      return data.keys().hasAll(['motoId', 'motoMarcaModelo', 'compradorNome', 'compradorCpf', 'telefone', 'valorVenda', 'entrada', 'parcelas', 'valorParcela', 'dataVenda']) &&
+             data.motoId is string &&
+             data.compradorNome is string && data.compradorNome.size() > 0 &&
+             data.compradorCpf is string && data.compradorCpf.size() > 0 &&
+             data.valorVenda is number && data.valorVenda >= 0 &&
+             data.entrada is number && data.entrada >= 0 &&
+             data.parcelas is int && data.parcelas > 0 &&
+             data.valorParcela is number && data.valorParcela >= 0 &&
+             (!('cep' in data) || data.cep is string) &&
+             (!('valorVendaFinal' in data) || data.valorVendaFinal is number) &&
+             (!('descontoAplicado' in data) || data.descontoAplicado is number) &&
+             (!('pagamentos' in data) || data.pagamentos is list) &&
+             (!('diferenciais' in data) || data.diferenciais is map) &&
+             (!('observacoes' in data) || data.observacoes is string) &&
+             (!('fotosRecibo' in data) || data.fotosRecibo is list) &&
+             (!('status' in data) || data.status in ['pendente', 'concluida', 'cancelada']);
+    }
+
+    function isValidPurchase(data) {
+      return data.keys().hasAll(['motoInfo', 'vendedorNome', 'vendedorCpfCnpj', 'valorTotal', 'entrada', 'valorFinanciado', 'dataCompra']) &&
+             data.motoInfo is map &&
+             data.vendedorNome is string && data.vendedorNome.size() > 0 &&
+             data.vendedorCpfCnpj is string && data.vendedorCpfCnpj.size() > 0 &&
+             data.valorTotal is number && data.valorTotal >= 0 &&
+             data.entrada is number && data.entrada >= 0 &&
+             data.valorFinanciado is number && data.valorFinanciado >= 0 &&
+             data.dataCompra is string &&
+             (!('parcelas' in data) || data.parcelas is list) &&
+             (!('fotos' in data) || data.fotos is list) &&
+             (!('observacoes' in data) || data.observacoes is string) &&
+             (!('status' in data) || data.status in ['em_estoque', 'vendida', 'cancelada']);
+    }
+
+    // Rules
+    match /motos/{motoId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidMoto(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /purchases/{purchaseId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && isValidPurchase(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /sales/{saleId} {
+      allow read: if isAdmin();
+      allow create: if isValidSale(request.resource.data);
+      allow update: if isAdmin() && isValidSale(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create, update: if isAuthenticated() && request.auth.uid == userId && 
+                             (request.resource.data.role == 'user' || isAdmin());
+    }
+  }
+}

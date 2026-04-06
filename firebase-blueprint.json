@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "Moto": {
+      "title": "Motorcycle",
+      "description": "A motorcycle available for sale",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "placa": { "type": "string" },
+        "marcaModelo": { "type": "string" },
+        "anoFabricacao": { "type": "integer" },
+        "anoModelo": { "type": "integer" },
+        "quilometragem": { "type": "string" },
+        "precoAVista": { "type": "number" },
+        "statusRevisao": { "type": "string" },
+        "statusDut": { "type": "string" },
+        "fotos": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["placa", "marcaModelo", "anoFabricacao", "anoModelo", "precoAVista"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user of the system",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "A purchase of a motorcycle for stock",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "motoInfo": { "type": "object" },
+        "vendedorNome": { "type": "string" },
+        "vendedorCpfCnpj": { "type": "string" },
+        "valorTotal": { "type": "number" },
+        "entrada": { "type": "number" },
+        "valorFinanciado": { "type": "number" },
+        "dataCompra": { "type": "string" },
+        "status": { "type": "string", "enum": ["em_estoque", "vendida", "cancelada"] }
+      },
+      "required": ["motoInfo", "vendedorNome", "vendedorCpfCnpj", "valorTotal", "entrada", "valorFinanciado", "dataCompra"]
+    }
+  },
+  "firestore": {
+    "motos": {
+      "schema": "Moto",
+      "description": "Collection of motorcycles for sale"
+    },
+    "users": {
+      "schema": "User",
+      "description": "Collection of users and their roles"
+    },
+    "purchases": {
+      "schema": "Purchase",
+      "description": "Collection of motorcycle purchases for stock"
+    }
+  }
+}

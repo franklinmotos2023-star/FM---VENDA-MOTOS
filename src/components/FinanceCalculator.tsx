@@ -427,11 +427,17 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Formulário de Cálculo */}
       <div className="bg-zinc-900 rounded-2xl shadow-xl overflow-hidden border border-zinc-800">
-        <div className="bg-black p-6 text-white flex items-center gap-3 border-b border-orange-600">
-          <Calculator className="text-orange-500" size={28} />
-          <div>
-            <h2 className="text-2xl font-black uppercase tracking-tight">Simulação <span className="text-orange-600">Financeira</span></h2>
-            <p className="text-zinc-400 text-sm mt-1 font-mono font-bold uppercase tracking-wider">{moto.marcaModelo} - 6 MESES DE GARANTIA*</p>
+        <div className="bg-black p-6 text-white flex items-center justify-between border-b border-orange-600">
+          <div className="flex items-center gap-3">
+            <Calculator className="text-orange-500" size={28} />
+            <div>
+              <h2 className="text-2xl font-black uppercase tracking-tight">Simulação <span className="text-orange-600">Financeira</span></h2>
+              <p className="text-zinc-400 text-sm mt-1 font-mono font-bold uppercase tracking-wider">{moto.marcaModelo} - 6 MESES DE GARANTIA*</p>
+            </div>
+          </div>
+          <div className="hidden sm:block text-right">
+            <span className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Valor da Moto</span>
+            <span className="text-2xl font-black text-white">{formatCurrency(moto.precoAVista)}</span>
           </div>
         </div>
 

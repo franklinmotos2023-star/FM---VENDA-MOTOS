@@ -130,6 +130,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      setCurrentView('list');
     } catch (error) {
       console.error("Logout error:", error);
     }

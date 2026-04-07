@@ -114,36 +114,36 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
   }, [opcoes]);
 
   const generateWhatsAppUrl = () => {
-    let message = `*PROPOSTA DE COMPRA - FRANKLIN MOTOS*%0A%0A` +
-      `*CLIENTE:* ${buyerData.nome}%0A` +
-      `*CPF:* ${buyerData.cpf}%0A` +
-      `*CEP:* ${buyerData.cep}%0A` +
-      `*TELEFONE:* ${buyerData.telefone}%0A%0A` +
-      `*MOTO:* ${moto.marcaModelo}%0A` +
-      `*PLACA:* ${moto.placa}%0A%0A` +
-      `*DETALHES DA PROPOSTA:*%0A`;
+    let message = `*PROPOSTA DE COMPRA - FRANKLIN MOTOS*\n\n` +
+      `*CLIENTE:* ${buyerData.nome}\n` +
+      `*CPF:* ${buyerData.cpf}\n` +
+      `*CEP:* ${buyerData.cep}\n` +
+      `*TELEFONE:* ${buyerData.telefone}\n\n` +
+      `*MOTO:* ${moto.marcaModelo}\n` +
+      `*PLACA:* ${moto.placa}\n\n` +
+      `*DETALHES DA PROPOSTA:*\n`;
 
     if (paymentMethod === 'avista') {
-      message += `- Pagamento: À Vista%0A` +
-        `- Valor Original: ${formatCurrency(moto.precoAVista)}%0A` +
-        `- Desconto: R$ 500,00%0A` +
-        `- Valor Final: ${formatCurrency(moto.precoAVista - 500)}%0A%0A`;
+      message += `- Pagamento: À Vista\n` +
+        `- Valor Original: ${formatCurrency(moto.precoAVista)}\n` +
+        `- Desconto: R$ 500,00\n` +
+        `- Valor Final: ${formatCurrency(moto.precoAVista - 500)}\n\n`;
     } else if (paymentMethod === 'financiamento') {
-      message += `- Pagamento: Financiamento Bancário%0A` +
-        `- Banco: ${banco}%0A` +
-        `- Valor Financiado: ${formatCurrency(Number(valorFinanciadoBancario) || 0)}%0A` +
-        `- Valor da Moto: ${formatCurrency(moto.precoAVista)}%0A%0A`;
+      message += `- Pagamento: Financiamento Bancário\n` +
+        `- Banco: ${banco}\n` +
+        `- Valor Financiado: ${formatCurrency(Number(valorFinanciadoBancario) || 0)}\n` +
+        `- Valor da Moto: ${formatCurrency(moto.precoAVista)}\n\n`;
     } else {
-      message += `- Pagamento: Cartão de Crédito%0A` +
-        `- Valor da Moto: ${formatCurrency(moto.precoAVista)}%0A` +
-        `- Entrada: ${formatCurrency(resultado!.entrada)}%0A` +
-        `- Parcelamento: ${resultado!.parcelas}x de ${formatCurrency(resultado!.valorParcela)}%0A` +
-        `- Valor Total (com encargos): ${formatCurrency(resultado!.valorFinal)}%0A%0A`;
+      message += `- Pagamento: Cartão de Crédito\n` +
+        `- Valor da Moto: ${formatCurrency(moto.precoAVista)}\n` +
+        `- Entrada: ${formatCurrency(resultado!.entrada)}\n` +
+        `- Parcelamento: ${resultado!.parcelas}x de ${formatCurrency(resultado!.valorParcela)}\n` +
+        `- Valor Total (com encargos): ${formatCurrency(resultado!.valorFinal)}\n\n`;
     }
 
     message += `Tenho interesse nesta proposta e gostaria de prosseguir com o pedido.`;
 
-    return `https://wa.me/558532332200?text=${message}`;
+    return `https://wa.me/558532332200?text=${encodeURIComponent(message)}`;
   };
 
   const handleConfirmAction = async () => {
@@ -194,6 +194,10 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
     e.preventDefault();
     
     try {
+      // Abre o WhatsApp IMEDIATAMENTE para evitar bloqueadores de pop-up
+      const whatsappUrl = generateWhatsAppUrl();
+      window.open(whatsappUrl, '_blank');
+
       // Salvar a proposta no histórico
       const saleRecord: SaleRecord = {
         motoId: moto.id,
@@ -220,12 +224,10 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
       };
       await setDoc(doc(collection(db, 'sales')), saleRecord);
 
-      const whatsappUrl = generateWhatsAppUrl();
-      window.open(whatsappUrl, '_blank');
       setStep('success');
     } catch (error) {
       console.error("Erro ao enviar proposta:", error);
-      alert("Erro ao enviar proposta. Tente novamente.");
+      alert("Erro ao salvar proposta. Tente novamente.");
     }
   };
 

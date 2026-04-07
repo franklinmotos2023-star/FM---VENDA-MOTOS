@@ -166,7 +166,7 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
             className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-black py-3 md:py-4 rounded-xl font-black transition-colors uppercase tracking-wider text-xs md:text-sm shadow-[0_0_15px_rgba(234,88,12,0.2)]"
           >
             <Calculator size={18} />
-            {isAdmin ? 'Vender / Simular' : 'Comprar / Simular'}
+            {isAdmin ? 'Vender / Simular' : 'Simule sua Proposta'}
           </button>
         </div>
       </div>
@@ -398,7 +398,7 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
                     className="flex-1 flex items-center justify-center gap-3 bg-orange-600 hover:bg-orange-500 text-black py-5 rounded-2xl font-black transition-all uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(234,88,12,0.3)]"
                   >
                     <Calculator size={24} />
-                    {isAdmin ? 'Vender / Simular' : 'Comprar / Simular'}
+                    {isAdmin ? 'Vender / Simular' : 'Simule sua Proposta'}
                   </button>
                   {isAdmin && (
                     <button

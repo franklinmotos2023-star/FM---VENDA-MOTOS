@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Moto, UserProfile } from './types';
+import { Moto, UserProfile, Acessorio, CartItem } from './types';
 import MotoList from './components/MotoList';
 import MotoForm from './components/MotoForm';
 import FinanceCalculator from './components/FinanceCalculator';
@@ -7,14 +7,19 @@ import AdminHistory from './components/AdminHistory';
 import AdminRates from './components/AdminRates';
 import AdminPurchases from './components/AdminPurchases';
 import UserProfileModal from './components/UserProfileModal';
+import AcessorioList from './components/AcessorioList';
+import AcessorioForm from './components/AcessorioForm';
+import CartModal from './components/CartModal';
 import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench } from 'lucide-react';
-import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, deleteDoc, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, deleteDoc, updateDoc, increment, handleFirestoreError, OperationType } from './firebase';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'list' | 'add' | 'edit' | 'finance' | 'acessorios'>('list');
-  const [adminTab, setAdminTab] = useState<'estoque' | 'historico' | 'taxas' | 'compra'>('estoque');
+  const [currentView, setCurrentView] = useState<'list' | 'add' | 'edit' | 'finance' | 'acessorios' | 'add_acessorio' | 'edit_acessorio'>('list');
+  const [adminTab, setAdminTab] = useState<'estoque' | 'vendas' | 'taxas' | 'compra'>('estoque');
   const [motos, setMotos] = useState<Moto[]>([]);
+  const [acessorios, setAcessorios] = useState<Acessorio[]>([]);
   const [selectedMoto, setSelectedMoto] = useState<Moto | null>(null);
+  const [selectedAcessorio, setSelectedAcessorio] = useState<Acessorio | null>(null);
   const [motoToDelete, setMotoToDelete] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -22,6 +27,8 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [userData, setUserData] = useState<any>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'motos'), orderBy('marcaModelo'));
@@ -71,7 +78,17 @@ export default function App() {
         });
       }
     });
-    return () => unsubscribe();
+
+    const qAcessorios = query(collection(db, 'acessorios'), orderBy('nome'));
+    const unsubscribeAcessorios = onSnapshot(qAcessorios, (snapshot) => {
+      const acessoriosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Acessorio));
+      setAcessorios(acessoriosData);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeAcessorios();
+    };
   }, [isAdmin]);
 
   useEffect(() => {
@@ -113,6 +130,40 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Migration script for existing accessories
+  useEffect(() => {
+    const migrateAccessories = async () => {
+      if (!isAdmin || acessorios.length === 0) return;
+      
+      for (const acessorio of acessorios) {
+        if (!acessorio.categoria) {
+          let newCategoria = 'Acessórios';
+          const nomeLower = acessorio.nome.toLowerCase();
+          
+          if (nomeLower.includes('capacete')) {
+            newCategoria = 'Capacetes';
+          } else if (nomeLower.includes('motor') || nomeLower.includes('vela') || nomeLower.includes('filtro')) {
+            newCategoria = 'Peças Motor';
+          } else if (nomeLower.includes('led') || nomeLower.includes('farol') || nomeLower.includes('bateria')) {
+            newCategoria = 'Peças Elétricas';
+          } else if (nomeLower.includes('carenagem') || nomeLower.includes('paralama') || nomeLower.includes('retrovisor')) {
+            newCategoria = 'Carenagem';
+          }
+
+          try {
+            await updateDoc(doc(db, 'acessorios', acessorio.id), {
+              categoria: newCategoria
+            });
+          } catch (error) {
+            console.error("Migration error:", error);
+          }
+        }
+      }
+    };
+
+    migrateAccessories();
+  }, [acessorios, isAdmin]);
+
   const handleLogin = async () => {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
@@ -131,6 +182,7 @@ export default function App() {
     try {
       await signOut(auth);
       setCurrentView('list');
+      setAdminTab('estoque');
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -172,6 +224,48 @@ export default function App() {
     }
   };
 
+  const handleSaveAcessorio = async (acessorioData: Omit<Acessorio, 'id'>) => {
+    try {
+      if (currentView === 'edit_acessorio' && selectedAcessorio) {
+        await setDoc(doc(db, 'acessorios', selectedAcessorio.id), acessorioData);
+      } else {
+        await setDoc(doc(collection(db, 'acessorios')), acessorioData);
+      }
+      setCurrentView('acessorios');
+      setSelectedAcessorio(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'acessorios');
+    }
+  };
+
+  const handleDeleteAcessorio = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'acessorios', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `acessorios/${id}`);
+    }
+  };
+
+  const handleToggleArchiveAcessorio = async (acessorio: Acessorio) => {
+    try {
+      await updateDoc(doc(db, 'acessorios', acessorio.id), {
+        isArchived: !acessorio.isArchived
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `acessorios/${acessorio.id}`);
+    }
+  };
+
+  const handleAddStockAcessorio = async (acessorio: Acessorio) => {
+    try {
+      await updateDoc(doc(db, 'acessorios', acessorio.id), {
+        estoque: increment(acessorio.estoque) // The quantity to add is passed in the estoque field from the modal
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `acessorios/${acessorio.id}`);
+    }
+  };
+
   const handleCancelAdd = () => {
     setCurrentView('list');
     setSelectedMoto(null);
@@ -184,7 +278,7 @@ export default function App() {
 
   const handleConfirmFinance = () => {
     setCurrentView('list');
-    setAdminTab('historico');
+    setAdminTab('vendas');
   };
 
   const handleCompleteSale = () => {
@@ -192,12 +286,42 @@ export default function App() {
     setSelectedMoto(null);
   };
 
+  const handleAddToCart = (acessorio: Acessorio) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.acessorio.id === acessorio.id);
+      if (existing) {
+        if (existing.quantidade >= acessorio.estoque) return prev;
+        return prev.map(item => 
+          item.acessorio.id === acessorio.id 
+            ? { ...item, quantidade: item.quantidade + 1 }
+            : item
+        );
+      }
+      return [...prev, { acessorio, quantidade: 1 }];
+    });
+    setIsCartOpen(true);
+  };
+
+  const handleUpdateCartQuantity = (acessorioId: string, delta: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.acessorio.id === acessorioId) {
+        const newQuantity = Math.max(1, Math.min(item.quantidade + delta, item.acessorio.estoque));
+        return { ...item, quantidade: newQuantity };
+      }
+      return item;
+    }));
+  };
+
+  const handleRemoveFromCart = (acessorioId: string) => {
+    setCart(prev => prev.filter(item => item.acessorio.id !== acessorioId));
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 font-sans text-zinc-100 selection:bg-orange-500 selection:text-black">
       {/* Header */}
       <header className="bg-black border-b border-orange-600 shadow-2xl print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex flex-col cursor-pointer" onClick={() => setCurrentView('list')}>
+          <div className="flex flex-col cursor-pointer" onClick={() => { setCurrentView('list'); setAdminTab('estoque'); }}>
             <h1 className="text-2xl font-black tracking-tighter uppercase text-white leading-none">
               FM <span className="text-orange-600">- Vendas</span>
             </h1>
@@ -231,14 +355,14 @@ export default function App() {
                     <Wrench size={16} /> Acessórios
                   </button>
                   <button
-                    onClick={() => { setCurrentView('list'); setAdminTab('historico'); }}
+                    onClick={() => { setCurrentView('list'); setAdminTab('vendas'); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
-                      adminTab === 'historico' 
+                      adminTab === 'vendas' 
                         ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
                         : 'text-zinc-400 hover:text-orange-500'
                     }`}
                   >
-                    <History size={16} /> Histórico
+                    <History size={16} /> Vendas
                   </button>
                   <button
                     onClick={() => { setCurrentView('list'); setAdminTab('compra'); }}
@@ -270,7 +394,7 @@ export default function App() {
                   >
                     {currentView === 'acessorios' && <><Wrench size={16} /> Acessórios</>}
                     {currentView !== 'acessorios' && adminTab === 'estoque' && <><Package size={16} /> Motos</>}
-                    {currentView !== 'acessorios' && adminTab === 'historico' && <><History size={16} /> Histórico</>}
+                    {currentView !== 'acessorios' && adminTab === 'vendas' && <><History size={16} /> Vendas</>}
                     {currentView !== 'acessorios' && adminTab === 'compra' && <><ShoppingCart size={16} /> Compra</>}
                     {currentView !== 'acessorios' && adminTab === 'taxas' && <><Percent size={16} /> Taxas</>}
                     <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
@@ -295,12 +419,12 @@ export default function App() {
                         <Wrench size={16} /> Acessórios
                       </button>
                       <button
-                        onClick={() => { setCurrentView('list'); setAdminTab('historico'); setIsMobileMenuOpen(false); }}
+                        onClick={() => { setCurrentView('list'); setAdminTab('vendas'); setIsMobileMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
-                          adminTab === 'historico' && currentView !== 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                          adminTab === 'vendas' && currentView !== 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                         }`}
                       >
-                        <History size={16} /> Histórico
+                        <History size={16} /> Vendas
                       </button>
                       <button
                         onClick={() => { setCurrentView('list'); setAdminTab('compra'); setIsMobileMenuOpen(false); }}
@@ -327,7 +451,7 @@ export default function App() {
                 {/* Desktop Tabs */}
                 <div className="hidden md:flex gap-2">
                   <button
-                    onClick={() => setCurrentView('list')}
+                    onClick={() => { setCurrentView('list'); setAdminTab('estoque'); }}
                     className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${
                       currentView === 'list' 
                         ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.5)]' 
@@ -362,7 +486,7 @@ export default function App() {
                   {isMobileMenuOpen && (
                     <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
                       <button
-                        onClick={() => { setCurrentView('list'); setIsMobileMenuOpen(false); }}
+                        onClick={() => { setCurrentView('list'); setAdminTab('estoque'); setIsMobileMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
                           currentView === 'list' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                         }`}
@@ -385,22 +509,35 @@ export default function App() {
             
             <div className="h-8 w-px bg-zinc-800 mx-2" />
 
-            {user ? (
-              <div className="flex items-center gap-4">
-                <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest">{isAdmin ? 'Modo Admin' : 'Modo Cliente'}</span>
-                  <span className="text-xs md:text-sm font-black text-white truncate max-w-[100px] md:max-w-[150px]">{user.displayName || user.email}</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-xl transition-all border border-zinc-800"
-                  title="Sair"
-                >
-                  <LogOut size={20} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-xl transition-all border border-zinc-800"
+                title="Carrinho"
+              >
+                <ShoppingCart size={20} />
+                {cart.length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-orange-600 text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
+                    {cart.reduce((a, b) => a + b.quantidade, 0)}
+                  </span>
+                )}
+              </button>
+
+              {user ? (
+                <>
+                  <div className="hidden sm:flex flex-col items-end">
+                    <span className="text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest">{isAdmin ? 'Modo Admin' : 'Modo Cliente'}</span>
+                    <span className="text-xs md:text-sm font-black text-white truncate max-w-[100px] md:max-w-[150px]">{user.displayName || user.email}</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-xl transition-all border border-zinc-800"
+                    title="Sair"
+                  >
+                    <LogOut size={20} />
+                  </button>
+                </>
+              ) : (
                 <button
                   onClick={handleLogin}
                   disabled={isLoggingIn}
@@ -409,8 +546,8 @@ export default function App() {
                 >
                   <LogIn size={20} />
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </nav>
         </div>
       </header>
@@ -418,17 +555,30 @@ export default function App() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 print:p-0 print:max-w-none">
         {currentView === 'acessorios' && (
-          <div className="flex flex-col items-center justify-center py-32 text-center animate-in fade-in zoom-in duration-500">
-            <div className="w-24 h-24 bg-orange-600/10 rounded-full flex items-center justify-center mb-6">
-              <Wrench size={48} className="text-orange-500" />
-            </div>
-            <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tight mb-4">
-              Em Andamento
-            </h2>
-            <p className="text-zinc-400 text-lg max-w-md">
-              A nossa seção de acessórios estará disponível em breve. Fique ligado!
-            </p>
-          </div>
+          <AcessorioList
+            acessorios={acessorios}
+            isAdmin={isAdmin}
+            onAdd={() => setCurrentView('add_acessorio')}
+            onEdit={(acessorio) => {
+              setSelectedAcessorio(acessorio);
+              setCurrentView('edit_acessorio');
+            }}
+            onDelete={handleDeleteAcessorio}
+            onAddToCart={handleAddToCart}
+            onToggleArchive={handleToggleArchiveAcessorio}
+            onAddStock={handleAddStockAcessorio}
+          />
+        )}
+
+        {(currentView === 'add_acessorio' || currentView === 'edit_acessorio') && (
+          <AcessorioForm
+            acessorio={selectedAcessorio}
+            onSave={handleSaveAcessorio}
+            onCancel={() => {
+              setCurrentView('acessorios');
+              setSelectedAcessorio(null);
+            }}
+          />
         )}
 
         {currentView === 'list' && adminTab === 'estoque' && (
@@ -442,7 +592,7 @@ export default function App() {
           />
         )}
 
-        {currentView === 'list' && adminTab === 'historico' && isAdmin && (
+        {currentView === 'list' && adminTab === 'vendas' && isAdmin && (
           <AdminHistory motos={motos} />
         )}
 
@@ -472,6 +622,17 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Cart Modal */}
+      {isCartOpen && (
+        <CartModal
+          cart={cart}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={handleUpdateCartQuantity}
+          onRemoveItem={handleRemoveFromCart}
+          onClearCart={() => setCart([])}
+        />
+      )}
 
       {/* User Profile Modal */}
       {showProfileModal && user && (

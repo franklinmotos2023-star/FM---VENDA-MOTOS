@@ -9,7 +9,7 @@ interface AdminRatesProps {
 
 export default function AdminRates({ motos }: AdminRatesProps) {
   const [selectedMoto, setSelectedMoto] = useState<Moto | null>(null);
-  const [planos, setPlanos] = useState<PlanoFinanceiro[]>([]);
+  const [planos, setPlanos] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Default plans based on the provided image for 14.000
@@ -28,42 +28,67 @@ export default function AdminRates({ motos }: AdminRatesProps) {
 
   const handleSelectMoto = (moto: Moto) => {
     setSelectedMoto(moto);
-    if (moto.planos && moto.planos.length > 0) {
-      setPlanos([...moto.planos]);
-    } else {
-      setPlanos([...defaultPlanos]);
-    }
+    const sourcePlanos = (moto.planos && moto.planos.length > 0) ? moto.planos : defaultPlanos;
+    setPlanos(sourcePlanos.map(p => ({
+      parcelas: p.parcelas,
+      taxaTotal: p.taxaTotal.toString(),
+      valorFinal: (moto.precoAVista * (1 + p.taxaTotal / 100)).toFixed(2)
+    })));
   };
 
   const handleAddPlano = () => {
-    setPlanos([...planos, { parcelas: 12, taxaTotal: 0 }]);
+    setPlanos([...planos, { parcelas: 12, taxaTotal: '', valorFinal: '' }]);
   };
 
   const handleRemovePlano = (index: number) => {
     setPlanos(planos.filter((_, i) => i !== index));
   };
 
-  const handlePlanoChange = (index: number, field: keyof PlanoFinanceiro, value: number) => {
+  const handlePlanoChange = (index: number, field: string, value: string | number) => {
     const newPlanos = [...planos];
     newPlanos[index] = { ...newPlanos[index], [field]: value };
+    
+    if (field === 'taxaTotal' && selectedMoto) {
+      const taxa = parseFloat(value as string);
+      if (!isNaN(taxa)) {
+        newPlanos[index].valorFinal = (selectedMoto.precoAVista * (1 + taxa / 100)).toFixed(2);
+      } else {
+        newPlanos[index].valorFinal = '';
+      }
+    }
+    
     setPlanos(newPlanos);
   };
 
-  const handleValorFinalChange = (index: number, valorFinal: number) => {
+  const handleValorFinalChange = (index: number, valorFinalStr: string) => {
     if (!selectedMoto) return;
-    const taxaTotal = ((valorFinal / selectedMoto.precoAVista) - 1) * 100;
-    handlePlanoChange(index, 'taxaTotal', Number(taxaTotal.toFixed(3)));
+    const newPlanos = [...planos];
+    newPlanos[index] = { ...newPlanos[index], valorFinal: valorFinalStr };
+    
+    const valorFinal = parseFloat(valorFinalStr);
+    if (!isNaN(valorFinal)) {
+      const taxaTotal = ((valorFinal / selectedMoto.precoAVista) - 1) * 100;
+      newPlanos[index].taxaTotal = taxaTotal.toFixed(3);
+    } else {
+      newPlanos[index].taxaTotal = '';
+    }
+    setPlanos(newPlanos);
   };
 
   const handleSave = async () => {
     if (!selectedMoto) return;
     setSaving(true);
     try {
+      const planosToSave = planos.map(p => ({
+        parcelas: Number(p.parcelas),
+        taxaTotal: Number(p.taxaTotal) || 0
+      }));
+      
       const motoRef = doc(db, 'motos', selectedMoto.id);
-      await setDoc(motoRef, { planos }, { merge: true });
+      await setDoc(motoRef, { planos: planosToSave }, { merge: true });
       
       // Update local state to reflect changes
-      setSelectedMoto({ ...selectedMoto, planos });
+      setSelectedMoto({ ...selectedMoto, planos: planosToSave });
       alert('Taxas salvas com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar taxas:', error);
@@ -164,8 +189,6 @@ export default function AdminRates({ motos }: AdminRatesProps) {
                 ) : (
                   <div className="space-y-3">
                     {planos.map((plano, index) => {
-                      const valorFinal = selectedMoto.precoAVista * (1 + plano.taxaTotal / 100);
-                      
                       return (
                         <div key={index} className="flex flex-wrap md:flex-nowrap items-center gap-4 bg-zinc-950 p-4 rounded-xl border border-zinc-800/50">
                           <div className="w-full md:w-1/4 space-y-1">
@@ -176,7 +199,7 @@ export default function AdminRates({ motos }: AdminRatesProps) {
                                 min="1"
                                 max="48"
                                 value={plano.parcelas}
-                                onChange={(e) => handlePlanoChange(index, 'parcelas', Number(e.target.value))}
+                                onChange={(e) => handlePlanoChange(index, 'parcelas', e.target.value)}
                                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white font-bold focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none"
                               />
                               <span className="text-zinc-500 font-bold">x</span>
@@ -191,8 +214,8 @@ export default function AdminRates({ motos }: AdminRatesProps) {
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={valorFinal.toFixed(2)}
-                                onChange={(e) => handleValorFinalChange(index, Number(e.target.value))}
+                                value={plano.valorFinal !== undefined ? plano.valorFinal : ''}
+                                onChange={(e) => handleValorFinalChange(index, e.target.value)}
                                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white font-bold focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none"
                               />
                             </div>
@@ -205,8 +228,8 @@ export default function AdminRates({ motos }: AdminRatesProps) {
                                 type="number"
                                 min="0"
                                 step="0.001"
-                                value={plano.taxaTotal}
-                                onChange={(e) => handlePlanoChange(index, 'taxaTotal', Number(e.target.value))}
+                                value={plano.taxaTotal !== undefined ? plano.taxaTotal : ''}
+                                onChange={(e) => handlePlanoChange(index, 'taxaTotal', e.target.value)}
                                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white font-bold focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none"
                               />
                               <span className="text-zinc-500 font-bold">%</span>

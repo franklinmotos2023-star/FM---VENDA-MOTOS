@@ -22,6 +22,15 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
   const [valorFinanciadoBancario, setValorFinanciadoBancario] = useState<number | ''>('');
   const [anexoProposta, setAnexoProposta] = useState<string | null>(null);
 
+  const [financiamentoStep, setFinanciamentoStep] = useState<'dados_pessoais' | 'dados_moto' | 'proposta_enviada' | 'questionario'>('dados_pessoais');
+  const [isConfirmingFinanciamento, setIsConfirmingFinanciamento] = useState(false);
+  const [questionario, setQuestionario] = useState({
+    tempoCompra: '',
+    sistemaSimulacao: '',
+    precos: '',
+    proposalId: ''
+  });
+
   const [opcoes, setOpcoes] = useState<SaleData[]>([]);
   const [resultado, setResultado] = useState<SaleData | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -31,7 +40,8 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
     nome: userData?.nome || '',
     cpf: userData?.cpf || '',
     cep: userData?.cep || '',
-    telefone: userData?.telefone || ''
+    telefone: userData?.telefone || '',
+    email: userData?.email || ''
   });
 
   const formatCurrency = (value: number) => {
@@ -559,86 +569,272 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
 
           {paymentMethod === 'financiamento' && (
             <div className="mb-8 space-y-6">
-              <div className="bg-blue-600/10 border border-blue-600/30 p-6 rounded-2xl">
-                <h3 className="text-lg font-black text-blue-500 uppercase tracking-wider mb-2">Financiamento Bancário</h3>
-                <p className="text-sm text-zinc-300">Envie em anexo a proposta do seu banco de preferência.</p>
-              </div>
+              {financiamentoStep === 'dados_pessoais' && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  <div className="bg-orange-600/10 border border-orange-600/30 p-6 rounded-2xl">
+                    <h3 className="text-lg font-black text-orange-500 uppercase tracking-wider mb-2">Dados Pessoais</h3>
+                    <p className="text-sm text-zinc-300">Preencha seus dados para iniciar a simulação de financiamento.</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Nome Completo</label>
+                      <input type="text" required value={buyerData.nome} onChange={(e) => setBuyerData({...buyerData, nome: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">CPF</label>
+                      <input type="text" required value={buyerData.cpf} onChange={(e) => setBuyerData({...buyerData, cpf: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Telefone</label>
+                      <input type="text" required value={buyerData.telefone} onChange={(e) => setBuyerData({...buyerData, telefone: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Email</label>
+                      <input type="email" required value={buyerData.email} onChange={(e) => setBuyerData({...buyerData, email: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white" />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">CEP</label>
+                      <input type="text" required value={buyerData.cep} onChange={(e) => setBuyerData({...buyerData, cep: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white" />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsConfirmingFinanciamento(true);
+                      setTimeout(() => {
+                        setIsConfirmingFinanciamento(false);
+                        setFinanciamentoStep('dados_moto');
+                      }, 1000);
+                    }}
+                    disabled={!buyerData.nome || !buyerData.cpf || !buyerData.telefone || !buyerData.email || !buyerData.cep || isConfirmingFinanciamento}
+                    className="w-full py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-colors shadow-[0_0_15px_rgba(234,88,12,0.3)] disabled:opacity-70 flex justify-center items-center uppercase tracking-wider text-sm"
+                  >
+                    {isConfirmingFinanciamento ? <span className="animate-pulse">Confirmando...</span> : 'Confirmar Dados'}
+                  </button>
+                </motion.div>
+              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Banco</label>
-                  <input
-                    type="text"
-                    required
-                    value={banco}
-                    onChange={(e) => setBanco(e.target.value)}
-                    placeholder="Ex: Santander, Itaú, BV"
-                    className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Valor Financiado (R$)</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    step="0.01"
-                    value={valorFinanciadoBancario}
-                    onChange={(e) => setValorFinanciadoBancario(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Anexar Proposta (Opcional)</label>
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setAnexoProposta(reader.result as string);
+              {financiamentoStep === 'dados_moto' && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  <div className="bg-orange-600/10 border border-orange-600/30 p-6 rounded-2xl">
+                    <h3 className="text-lg font-black text-orange-500 uppercase tracking-wider mb-2">Dados da Moto</h3>
+                    <p className="text-sm text-zinc-300">Confirme os dados do veículo para enviar a proposta.</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Marca</label>
+                      <input type="text" disabled value={moto.marcaModelo.split(' ')[0]} className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 cursor-not-allowed" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Modelo</label>
+                      <input type="text" disabled value={moto.marcaModelo.split(' ').slice(1).join(' ') || moto.marcaModelo} className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 cursor-not-allowed" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Ano</label>
+                      <input type="text" disabled value={`${moto.anoFabricacao}/${moto.anoModelo}`} className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 cursor-not-allowed" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Valor</label>
+                      <input type="text" disabled value={formatCurrency(moto.precoAVista)} className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 cursor-not-allowed" />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsConfirmingFinanciamento(true);
+                      try {
+                        const saleRecord: SaleRecord = {
+                          motoId: moto.id,
+                          motoMarcaModelo: moto.marcaModelo,
+                          motoPlaca: moto.placa,
+                          compradorNome: buyerData.nome,
+                          compradorCpf: buyerData.cpf,
+                          telefone: buyerData.telefone,
+                          email: buyerData.email,
+                          cep: buyerData.cep,
+                          valorVenda: moto.precoAVista,
+                          entrada: 0,
+                          parcelas: 1,
+                          valorParcela: 0,
+                          dataVenda: new Date().toISOString(),
+                          vendedorUid: 'cliente',
+                          status: 'pendente',
+                          financiamentoBancario: {}
                         };
-                        reader.readAsDataURL(file);
+                        const docRef = doc(collection(db, 'sales'));
+                        await setDoc(docRef, saleRecord);
+                        // Store the ID to update later
+                        setQuestionario(prev => ({ ...prev, proposalId: docRef.id }));
+                        
+                        setTimeout(() => {
+                          setIsConfirmingFinanciamento(false);
+                          setFinanciamentoStep('proposta_enviada');
+                        }, 500);
+                      } catch (error) {
+                        console.error("Error saving proposal:", error);
+                        alert("Erro ao enviar proposta. Tente novamente.");
+                        setIsConfirmingFinanciamento(false);
                       }
                     }}
-                    className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700"
-                  />
-                </div>
-              </div>
+                    disabled={isConfirmingFinanciamento}
+                    className="w-full py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-colors shadow-[0_0_15px_rgba(234,88,12,0.3)] disabled:opacity-70 flex justify-center items-center uppercase tracking-wider text-sm"
+                  >
+                    {isConfirmingFinanciamento ? <span className="animate-pulse">Enviando Proposta...</span> : 'Confirmar Dados da Moto e Enviar Proposta'}
+                  </button>
+                </motion.div>
+              )}
+
+              {financiamentoStep === 'proposta_enviada' && (
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-6 py-8">
+                  <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle2 size={48} className="text-green-500" />
+                  </div>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tight">Proposta Enviada!</h3>
+                  <p className="text-zinc-400 max-w-md mx-auto">
+                    Sua proposta de financiamento foi enviada com sucesso. Nossa equipe analisará os dados e entrará em contato em breve.
+                  </p>
+                  <div className="flex flex-col gap-4 max-w-sm mx-auto mt-8">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const text = `Olá! Acabei de enviar uma proposta de financiamento para a moto ${moto.marcaModelo} (${moto.anoFabricacao}/${moto.anoModelo}). Meu nome é ${buyerData.nome}.`;
+                        window.open(`https://wa.me/5581999999999?text=${encodeURIComponent(text)}`, '_blank');
+                        setFinanciamentoStep('questionario');
+                      }}
+                      className="w-full py-4 bg-green-600 text-white rounded-xl font-black hover:bg-green-500 transition-colors shadow-[0_0_15px_rgba(22,163,74,0.3)] flex justify-center items-center gap-2 uppercase tracking-wider text-sm"
+                    >
+                      <MessageCircle size={20} />
+                      Confirmar via WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFinanciamentoStep('questionario')}
+                      className="w-full py-4 bg-zinc-800 text-white rounded-xl font-bold hover:bg-zinc-700 transition-colors uppercase tracking-wider text-sm"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {financiamentoStep === 'questionario' && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                  <div className="bg-orange-600/10 border border-orange-600/30 p-6 rounded-2xl text-center">
+                    <h3 className="text-xl font-black text-orange-500 uppercase tracking-wider mb-2">Pesquisa Rápida</h3>
+                    <p className="text-sm text-zinc-300">Ajude-nos a melhorar respondendo a estas 3 perguntas rápidas.</p>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <label className="block text-sm font-bold text-white uppercase tracking-wider">1. Quando você pretende comprar a moto?</label>
+                      <div className="space-y-2">
+                        {['O mais rápido possível (1 semana)', 'Em breve (1 mês)', 'Ainda este ano (6 meses)', 'Estou apenas simulando'].map(opt => (
+                          <label key={opt} className="flex items-center gap-3 p-3 rounded-xl border border-zinc-800 hover:bg-zinc-900 cursor-pointer transition-colors">
+                            <input type="radio" name="tempoCompra" value={opt} checked={questionario.tempoCompra === opt} onChange={(e) => setQuestionario({...questionario, tempoCompra: e.target.value})} className="text-orange-600 focus:ring-orange-600 bg-zinc-950 border-zinc-700" />
+                            <span className="text-zinc-300 text-sm">{opt}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="block text-sm font-bold text-white uppercase tracking-wider">2. O que achou do nosso sistema de simulação?</label>
+                      <div className="space-y-2">
+                        {['Fácil de utilizar e de entender cada etapa', 'Tive dificuldade no início mas depois consegui', 'Não consigo fazer minha simulação'].map(opt => (
+                          <label key={opt} className="flex items-center gap-3 p-3 rounded-xl border border-zinc-800 hover:bg-zinc-900 cursor-pointer transition-colors">
+                            <input type="radio" name="sistemaSimulacao" value={opt} checked={questionario.sistemaSimulacao === opt} onChange={(e) => setQuestionario({...questionario, sistemaSimulacao: e.target.value})} className="text-orange-600 focus:ring-orange-600 bg-zinc-950 border-zinc-700" />
+                            <span className="text-zinc-300 text-sm">{opt}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="block text-sm font-bold text-white uppercase tracking-wider">3. O que achou dos nossos preços?</label>
+                      <div className="space-y-2">
+                        {['Em conta, preço justo.', 'Na média do mercado', 'Um pouco caro', 'Caríssimo, acima do mercado.'].map(opt => (
+                          <label key={opt} className="flex items-center gap-3 p-3 rounded-xl border border-zinc-800 hover:bg-zinc-900 cursor-pointer transition-colors">
+                            <input type="radio" name="precos" value={opt} checked={questionario.precos === opt} onChange={(e) => setQuestionario({...questionario, precos: e.target.value})} className="text-orange-600 focus:ring-orange-600 bg-zinc-950 border-zinc-700" />
+                            <span className="text-zinc-300 text-sm">{opt}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        if (questionario.proposalId) {
+                          const proposalRef = doc(db, 'sales', questionario.proposalId);
+                          await setDoc(proposalRef, {
+                            financiamentoBancario: {
+                              questionario: {
+                                tempoCompra: questionario.tempoCompra,
+                                sistemaSimulacao: questionario.sistemaSimulacao,
+                                precos: questionario.precos
+                              }
+                            }
+                          }, { merge: true });
+                        }
+                        onCancel();
+                      } catch (error) {
+                        console.error("Error saving questionnaire:", error);
+                        alert("Erro ao salvar questionário. Tente novamente.");
+                      }
+                    }}
+                    disabled={!questionario.tempoCompra || !questionario.sistemaSimulacao || !questionario.precos}
+                    className="w-full py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-colors shadow-[0_0_15px_rgba(234,88,12,0.3)] disabled:opacity-70 flex justify-center items-center uppercase tracking-wider text-sm"
+                  >
+                    Finalizar Questionário
+                  </button>
+                </motion.div>
+              )}
             </div>
           )}
 
           <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-8 py-4 border border-zinc-700 rounded-xl text-zinc-300 font-bold hover:bg-zinc-800 hover:text-white transition-colors uppercase tracking-wider text-sm"
-            >
-              Voltar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (paymentMethod === 'cartao') {
-                  handleCalculate({ preventDefault: () => {} } as React.FormEvent);
-                } else {
-                  setStep('proposal_form');
-                }
-              }}
-              disabled={isCalculating || (paymentMethod === 'financiamento' && (!banco || !valorFinanciadoBancario))}
-              className="flex-1 py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-colors shadow-[0_0_15px_rgba(234,88,12,0.3)] disabled:opacity-70 flex justify-center items-center uppercase tracking-wider text-sm"
-            >
-              {isCalculating ? (
-                <span className="animate-pulse">Processando...</span>
-              ) : paymentMethod === 'cartao' ? (
-                'Gerar Opções de Parcelamento'
-              ) : (
-                'Continuar'
-              )}
-            </button>
+            {paymentMethod !== 'financiamento' && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-8 py-4 border border-zinc-700 rounded-xl text-zinc-300 font-bold hover:bg-zinc-800 hover:text-white transition-colors uppercase tracking-wider text-sm"
+              >
+                Voltar
+              </button>
+            )}
+            {paymentMethod !== 'financiamento' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (paymentMethod === 'cartao') {
+                    handleCalculate({ preventDefault: () => {} } as React.FormEvent);
+                  } else {
+                    setStep('proposal_form');
+                  }
+                }}
+                disabled={isCalculating}
+                className="flex-1 py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-colors shadow-[0_0_15px_rgba(234,88,12,0.3)] disabled:opacity-70 flex justify-center items-center uppercase tracking-wider text-sm"
+              >
+                {isCalculating ? (
+                  <span className="animate-pulse">Processando...</span>
+                ) : paymentMethod === 'cartao' ? (
+                  'Gerar Opções de Parcelamento'
+                ) : (
+                  'Continuar'
+                )}
+              </button>
+            )}
+            {paymentMethod === 'financiamento' && financiamentoStep === 'dados_pessoais' && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-full py-4 border border-zinc-700 rounded-xl text-zinc-300 font-bold hover:bg-zinc-800 hover:text-white transition-colors uppercase tracking-wider text-sm"
+              >
+                Voltar
+              </button>
+            )}
           </div>
         </form>
       </div>

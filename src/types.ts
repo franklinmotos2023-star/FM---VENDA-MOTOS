@@ -61,6 +61,7 @@ export type SaleRecord = {
   compradorNome: string;
   compradorCpf: string;
   telefone: string;
+  email?: string;
   cep?: string;
   
   // Valores da simulação original
@@ -77,9 +78,14 @@ export type SaleRecord = {
   
   // Dados de financiamento bancário
   financiamentoBancario?: {
-    banco: string;
-    valorFinanciado: number;
+    banco?: string;
+    valorFinanciado?: number;
     anexoProposta?: string;
+    questionario?: {
+      tempoCompra: string;
+      sistemaSimulacao: string;
+      precos: string;
+    };
   };
   
   // Diferenciais acordados na venda
@@ -140,6 +146,44 @@ export type PurchaseRecord = {
   observacoes?: string;
   status: 'em_estoque' | 'vendida' | 'cancelada';
   isPublished?: boolean;
+};
+
+export type Acessorio = {
+  id: string;
+  nome: string;
+  descricao: string;
+  preco: number;
+  precoPromocional?: number;
+  emPromocao: boolean;
+  fotos: string[];
+  aplicacao: string; // Motos compatíveis
+  estoque: number;
+  isArchived?: boolean;
+  categoria?: string;
+  tags?: string[];
+};
+
+export type CartItem = {
+  acessorio: Acessorio;
+  quantidade: number;
+};
+
+export type AcessorioSaleRecord = {
+  id?: string;
+  items: {
+    acessorioId: string;
+    nome: string;
+    preco: number;
+    quantidade: number;
+  }[];
+  valorTotal: number;
+  compradorNome: string;
+  compradorCpf: string;
+  telefone: string;
+  cep?: string;
+  endereco?: string;
+  dataVenda: string;
+  status: 'pendente' | 'concluida' | 'cancelada';
 };
 
 declare global {

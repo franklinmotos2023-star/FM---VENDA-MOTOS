@@ -299,6 +299,11 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
+      if ((formData.fotos?.length || 0) + files.length > 4) {
+        alert("Você pode adicionar no máximo 4 fotos por moto.");
+        return;
+      }
+
       const compressedImages = await Promise.all(
         Array.from(files).map((file: File) => compressImage(file))
       );

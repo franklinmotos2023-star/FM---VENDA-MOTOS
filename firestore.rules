@@ -89,7 +89,52 @@ service cloud.firestore {
              (!('status' in data) || data.status in ['em_estoque', 'vendida', 'cancelada']);
     }
 
+    function isValidAcessorio(data) {
+      return data.keys().hasAll(['nome', 'descricao', 'preco', 'emPromocao', 'aplicacao', 'estoque']) &&
+             data.nome is string && data.nome.size() > 0 &&
+             data.descricao is string &&
+             data.preco is number && data.preco >= 0 &&
+             data.emPromocao is bool &&
+             (!('precoPromocional' in data) || data.precoPromocional is number) &&
+             data.aplicacao is string &&
+             data.estoque is int && data.estoque >= 0 &&
+             (!('fotos' in data) || data.fotos is list) &&
+             (!('isArchived' in data) || data.isArchived is bool) &&
+             (!('categoria' in data) || data.categoria is string) &&
+             (!('tags' in data) || data.tags is list);
+    }
+
+    function isValidAcessorioSale(data) {
+      return data.keys().hasAll(['items', 'valorTotal', 'compradorNome', 'compradorCpf', 'telefone', 'dataVenda', 'status']) &&
+             data.items is list &&
+             data.valorTotal is number && data.valorTotal >= 0 &&
+             data.compradorNome is string && data.compradorNome.size() > 0 &&
+             data.compradorCpf is string && data.compradorCpf.size() > 0 &&
+             data.telefone is string && data.telefone.size() > 0 &&
+             data.dataVenda is string &&
+             data.status in ['pendente', 'concluida', 'cancelada'] &&
+             (!('cep' in data) || data.cep is string) &&
+             (!('endereco' in data) || data.endereco is string);
+    }
+
     // Rules
+    match /acessorio_sales/{saleId} {
+      allow read: if isAdmin();
+      allow create: if isValidAcessorioSale(request.resource.data);
+      allow update: if isAdmin() && isValidAcessorioSale(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /acessorios/{acessorioId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidAcessorio(request.resource.data);
+      allow update: if (isAdmin() && isValidAcessorio(request.resource.data)) || 
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estoque']) && 
+                        request.resource.data.estoque < resource.data.estoque && 
+                        request.resource.data.estoque >= 0);
+      allow delete: if isAdmin();
+    }
+
     match /motos/{motoId} {
       allow read: if true;
       allow create, update: if isAdmin() && isValidMoto(request.resource.data);

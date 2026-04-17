@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Acessorio } from '../types';
 import { Plus, Edit, Trash2, Tag, ChevronLeft, ChevronRight, PackageOpen, ShoppingCart, Search, Filter, ArrowUpDown, ChevronDown, Archive, ArchiveRestore, X } from 'lucide-react';
+import AcessorioConfigManager from './AcessorioConfigManager';
+import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
 
 interface AcessorioListProps {
   acessorios: Acessorio[];
@@ -14,6 +16,8 @@ interface AcessorioListProps {
 }
 
 export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDelete, onAddToCart, onToggleArchive, onAddStock }: AcessorioListProps) {
+  const config = useAcessoriosConfig();
+  
   const [currentImageIndices, setCurrentImageIndices] = useState<Record<string, number>>({});
   const [acessorioToDelete, setAcessorioToDelete] = useState<string | null>(null);
   const [acessorioToAddStock, setAcessorioToAddStock] = useState<Acessorio | null>(null);
@@ -23,9 +27,11 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
   // Filters and Sorting State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAplicacao, setFilterAplicacao] = useState('all');
+  const [filterMarcaMoto, setFilterMarcaMoto] = useState('all');
+  const [filterModeloMoto, setFilterModeloMoto] = useState('all');
   const [filterCategoria, setFilterCategoria] = useState('all');
   const [sortBy, setSortBy] = useState('relevance');
-  const [adminTab, setAdminTab] = useState<'ativos' | 'arquivados' | 'zerados'>('ativos');
+  const [adminTab, setAdminTab] = useState<'ativos' | 'arquivados' | 'zerados' | 'marcas_motos'>('ativos');
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -103,6 +109,16 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
       result = result.filter(a => a.aplicacao === filterAplicacao);
     }
 
+    // Marca Filter
+    if (filterMarcaMoto !== 'all') {
+      result = result.filter(a => a.marcaMoto === filterMarcaMoto);
+    }
+
+    // Modelo Filter
+    if (filterModeloMoto !== 'all') {
+      result = result.filter(a => a.modeloMoto === filterModeloMoto);
+    }
+
     // Category Filter
     if (filterCategoria !== 'all') {
       result = result.filter(a => a.categoria === filterCategoria);
@@ -126,7 +142,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
     });
 
     return result;
-  }, [acessorios, searchTerm, filterAplicacao, filterCategoria, sortBy, adminTab, isAdmin]);
+  }, [acessorios, searchTerm, filterAplicacao, filterMarcaMoto, filterModeloMoto, filterCategoria, sortBy, adminTab, isAdmin]);
 
   if (acessorios.length === 0 && !isAdmin) {
     return (
@@ -178,7 +194,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
         >
           Todos
         </button>
-        {['Peças Motor', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes'].map(cat => (
+        {['Kit Transmissão', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes'].map(cat => (
           <button
             key={cat}
             onClick={() => setFilterCategoria(cat)}
@@ -225,11 +241,25 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
           >
             Zerados
           </button>
+          <button
+            onClick={() => setAdminTab('marcas_motos')}
+            className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs whitespace-nowrap transition-all ${
+              adminTab === 'marcas_motos' 
+                ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
+                : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800'
+            }`}
+          >
+            Marcas & Motos
+          </button>
         </div>
       )}
 
-      {/* Filters and Sorting Bar */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row gap-4">
+      {adminTab === 'marcas_motos' ? (
+        <AcessorioConfigManager />
+      ) : (
+        <>
+          {/* Filters and Sorting Bar */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
           <input
@@ -241,15 +271,46 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
           />
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative min-w-[200px]">
+        <div className="flex flex-col sm:flex-row gap-4 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide shrink-0">
+          <div className="relative min-w-[160px]">
+            <select
+              value={filterMarcaMoto}
+              onChange={(e) => {
+                setFilterMarcaMoto(e.target.value);
+                setFilterModeloMoto('all'); // Reset modelo when marca changes
+              }}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm font-medium appearance-none"
+            >
+              <option value="all">Marcas (Todas)</option>
+              {(config.marcas || []).map(marca => (
+                <option key={marca} value={marca}>{marca}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
+          </div>
+
+          <div className="relative min-w-[160px]">
+            <select
+              value={filterModeloMoto}
+              onChange={(e) => setFilterModeloMoto(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm font-medium appearance-none"
+            >
+              <option value="all">Modelos (Todos)</option>
+              {(config.motos || []).map(moto => (
+                <option key={moto} value={moto}>{moto}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
+          </div>
+
+          <div className="relative min-w-[160px]">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
             <select
               value={filterAplicacao}
               onChange={(e) => setFilterAplicacao(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-10 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm font-medium appearance-none"
             >
-              <option value="all">Todas as Aplicações</option>
+              <option value="all">Aplicações</option>
               {aplicacoes.map(app => (
                 <option key={app} value={app}>{app}</option>
               ))}
@@ -257,7 +318,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
           </div>
 
-          <div className="relative min-w-[200px]">
+          <div className="relative min-w-[160px]">
             <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
             <select
               value={sortBy}
@@ -492,17 +553,17 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
 
       {/* Product Details Modal */}
       {acessorioDetails && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-4xl shadow-2xl animate-in zoom-in duration-200 my-8 flex flex-col md:flex-row overflow-hidden relative">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] shadow-2xl animate-in zoom-in duration-200 flex flex-col md:flex-row overflow-hidden relative">
             <button 
               onClick={() => setAcessorioDetails(null)}
-              className="absolute top-4 right-4 z-10 p-2 bg-black/50 hover:bg-red-500 text-white rounded-full backdrop-blur-sm transition-colors"
+              className="absolute top-4 right-4 z-20 p-2 bg-black/50 hover:bg-red-500 text-white rounded-full backdrop-blur-sm transition-colors"
             >
               <X size={20} />
             </button>
             
             {/* Image Section */}
-            <div className="w-full md:w-1/2 bg-zinc-950 relative aspect-square md:aspect-auto flex items-center justify-center">
+            <div className="w-full md:w-1/2 bg-zinc-950 relative h-[40vh] md:h-auto min-h-[300px] flex md:flex-1 items-center justify-center shrink-0 overflow-hidden">
               {acessorioDetails.emPromocao && (
                 <div className="absolute top-4 left-4 z-10 bg-orange-600 text-black text-xs font-black px-4 py-2 rounded-full uppercase tracking-widest shadow-lg">
                   Promoção
@@ -513,7 +574,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
                   <img 
                     src={acessorioDetails.fotos[currentImageIndices[acessorioDetails.id] || 0]} 
                     alt={acessorioDetails.nome}
-                    className="w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
                   {acessorioDetails.fotos.length > 1 && (
                     <>
@@ -546,7 +607,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             </div>
 
             {/* Details Section */}
-            <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col max-h-[80vh] overflow-y-auto">
+            <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col flex-1 overflow-y-auto">
               {acessorioDetails.categoria && (
                 <span className="text-orange-500 text-xs font-bold uppercase tracking-widest mb-2 block">
                   {acessorioDetails.categoria}
@@ -620,6 +681,8 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

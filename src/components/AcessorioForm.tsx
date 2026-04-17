@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Acessorio } from '../types';
 import { Camera, X, Save, ArrowLeft, Wand2, Loader2, Tag, CheckCircle } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
+import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
+import { ChevronDown } from 'lucide-react';
 
 interface AcessorioFormProps {
   acessorio?: Acessorio | null;
@@ -10,6 +12,8 @@ interface AcessorioFormProps {
 }
 
 export default function AcessorioForm({ acessorio, onSave, onCancel }: AcessorioFormProps) {
+  const config = useAcessoriosConfig();
+
   const [formData, setFormData] = useState<Omit<Acessorio, 'id'>>({
     nome: acessorio?.nome || '',
     descricao: acessorio?.descricao || '',
@@ -18,6 +22,8 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
     emPromocao: acessorio?.emPromocao || false,
     fotos: acessorio?.fotos || [],
     aplicacao: acessorio?.aplicacao || '',
+    marcaMoto: acessorio?.marcaMoto || '',
+    modeloMoto: acessorio?.modeloMoto || '',
     estoque: acessorio?.estoque || 1,
     categoria: acessorio?.categoria || 'Acessórios',
     tags: acessorio?.tags || [],
@@ -203,7 +209,7 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
           <div className="space-y-2 md:col-span-3">
             <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Categoria</label>
             <div className="flex flex-wrap gap-2">
-              {['Peças Motor', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes', 'Outros'].map(cat => (
+              {['Kit Transmissão', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes', 'Outros'].map(cat => (
                 <button
                   key={cat}
                   type="button"
@@ -219,7 +225,7 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
               ))}
             </div>
           </div>
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-3">
             <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Nome do Acessório</label>
             <input
               type="text"
@@ -230,8 +236,43 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
               placeholder="Ex: Baú Givi 45L"
             />
           </div>
+
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Aplicação (Motos Compatíveis)</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Marca da Moto</label>
+            <div className="relative">
+              <select
+                value={formData.marcaMoto || ''}
+                onChange={(e) => setFormData({...formData, marcaMoto: e.target.value, modeloMoto: ''})}
+                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold appearance-none"
+              >
+                <option value="">Selecione uma Marca (Opcional)</option>
+                {(config.marcas || []).map(marca => (
+                  <option key={marca} value={marca}>{marca}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={18} />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Modelo da Moto</label>
+            <div className="relative">
+              <select
+                value={formData.modeloMoto || ''}
+                onChange={(e) => setFormData({...formData, modeloMoto: e.target.value})}
+                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold appearance-none"
+              >
+                <option value="">Selecione um Modelo (Opcional)</option>
+                {(config.motos || []).map(moto => (
+                  <option key={moto} value={moto}>{moto}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={18} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Aplicação (Outras Motos/Versão)</label>
             <input
               type="text"
               required

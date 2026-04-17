@@ -157,10 +157,17 @@ export type Acessorio = {
   emPromocao: boolean;
   fotos: string[];
   aplicacao: string; // Motos compatíveis
+  marcaMoto?: string;
+  modeloMoto?: string;
   estoque: number;
   isArchived?: boolean;
   categoria?: string;
   tags?: string[];
+};
+
+export type AcessoriosConfig = {
+  marcas: string[];
+  motos: string[];
 };
 
 export type CartItem = {

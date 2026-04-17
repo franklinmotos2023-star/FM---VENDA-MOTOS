@@ -97,6 +97,8 @@ service cloud.firestore {
              data.emPromocao is bool &&
              (!('precoPromocional' in data) || data.precoPromocional is number) &&
              data.aplicacao is string &&
+             (!('marcaMoto' in data) || data.marcaMoto is string) &&
+             (!('modeloMoto' in data) || data.modeloMoto is string) &&
              data.estoque is int && data.estoque >= 0 &&
              (!('fotos' in data) || data.fotos is list) &&
              (!('isArchived' in data) || data.isArchived is bool) &&
@@ -133,6 +135,11 @@ service cloud.firestore {
                         request.resource.data.estoque < resource.data.estoque && 
                         request.resource.data.estoque >= 0);
       allow delete: if isAdmin();
+    }
+
+    match /settings/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /motos/{motoId} {

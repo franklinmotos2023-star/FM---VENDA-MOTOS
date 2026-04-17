@@ -254,13 +254,13 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
               </button>
 
               {/* Galeria de Fotos */}
-              <div className="w-full md:w-1/2 h-64 md:h-auto bg-black relative group">
+              <div className="w-full md:w-1/2 h-64 md:h-auto md:min-h-[400px] bg-black relative group shrink-0 md:flex-1">
                 {selectedMoto.fotos && selectedMoto.fotos.length > 0 ? (
                   <>
                     <img 
                       src={selectedMoto.fotos[currentImageIndex]} 
                       alt={selectedMoto.marcaModelo} 
-                      className="w-full h-full object-contain"
+                      className="absolute inset-0 w-full h-full object-contain"
                     />
                     {selectedMoto.fotos.length > 1 && (
                       <>
@@ -295,7 +295,7 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
               </div>
 
               {/* Informações */}
-              <div className="w-full md:w-1/2 p-6 md:p-10 overflow-y-auto custom-scrollbar">
+              <div className="w-full md:w-1/2 p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1">
                 <div className="mb-8">
                   <div className="flex items-center gap-3 mb-2">
                     <span className="bg-orange-600 text-black px-3 py-1 rounded-md font-black text-xs uppercase tracking-widest">

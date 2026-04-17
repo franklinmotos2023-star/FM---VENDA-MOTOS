@@ -143,7 +143,7 @@ export default function App() {
           if (nomeLower.includes('capacete')) {
             newCategoria = 'Capacetes';
           } else if (nomeLower.includes('motor') || nomeLower.includes('vela') || nomeLower.includes('filtro')) {
-            newCategoria = 'Peças Motor';
+            newCategoria = 'Kit Transmissão';
           } else if (nomeLower.includes('led') || nomeLower.includes('farol') || nomeLower.includes('bateria')) {
             newCategoria = 'Peças Elétricas';
           } else if (nomeLower.includes('carenagem') || nomeLower.includes('paralama') || nomeLower.includes('retrovisor')) {

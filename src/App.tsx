@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Moto, UserProfile, Acessorio, CartItem } from './types';
 import MotoList from './components/MotoList';
 import MotoForm from './components/MotoForm';
@@ -13,7 +14,40 @@ import CartModal from './components/CartModal';
 import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench } from 'lucide-react';
 import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, deleteDoc, updateDoc, increment, handleFirestoreError, OperationType } from './firebase';
 
+const ScooterIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="1.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    {/* Rear Wheel */}
+    <circle cx="6" cy="17" r="3" />
+    {/* Front Wheel */}
+    <circle cx="18" cy="17" r="3" />
+    {/* Fork */}
+    <path d="M18 14 l-3 -8" />
+    {/* Handlebar */}
+    <path d="M14 6 h3" />
+    {/* Chassis */}
+    <path d="M16.5 11.5 c-1 1 -2 2 -3 2 h-3.5 l-2 -2.5 H5.5 c-1 0 -2.5 1 -2.5 2.5 V15" />
+    {/* Seat */}
+    <path d="M5.5 9 h4.5 l1 2" />
+    {/* Swingarm */}
+    <path d="M9 17 H6" />
+    {/* Headlight */}
+    <path d="M16 6 a1 1 0 0 1 2 1" />
+  </svg>
+);
+
 export default function App() {
+  const [isAppLoading, setIsAppLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'list' | 'add' | 'edit' | 'finance' | 'acessorios' | 'add_acessorio' | 'edit_acessorio'>('list');
   const [adminTab, setAdminTab] = useState<'estoque' | 'vendas' | 'taxas' | 'compra'>('estoque');
   const [motos, setMotos] = useState<Moto[]>([]);
@@ -29,6 +63,13 @@ export default function App() {
   const [userData, setUserData] = useState<any>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsAppLoading(false);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, 'motos'), orderBy('marcaModelo'));
@@ -317,19 +358,60 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 font-sans text-zinc-100 selection:bg-orange-500 selection:text-black">
+    <>
+      <AnimatePresence>
+        {isAppLoading && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+            className="fixed inset-0 z-[100] bg-zinc-950 flex flex-col items-center justify-center"
+          >
+            <motion.div
+              animate={{
+                x: [-15, 15, -15],
+                y: [0, -2, 0]
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="relative text-orange-600 mb-6"
+            >
+              <ScooterIcon size={80} className="drop-shadow-[0_0_15px_rgba(234,88,12,0.5)]" />
+              <motion.div 
+                className="absolute -bottom-2 -left-4 w-16 h-1 bg-white/20 blur-sm rounded-full"
+                animate={{ x: [-20, 50], opacity: [0, 1, 0] }}
+                transition={{ duration: 1, repeat: Infinity, ease: "easeOut" }}
+              />
+              <motion.div 
+                className="absolute -bottom-1 -left-2 w-10 h-1 bg-white/20 blur-sm rounded-full"
+                animate={{ x: [-30, 40], opacity: [0, 1, 0] }}
+                transition={{ duration: 0.8, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
+              />
+            </motion.div>
+            <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-widest text-center px-4">
+              Carregando...
+              <span className="block text-orange-600 text-sm mt-2 tracking-widest">Estamos acelerando por você</span>
+            </h2>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="min-h-screen bg-zinc-950 font-sans text-zinc-100 selection:bg-orange-500 selection:text-black">
       {/* Header */}
       <header className="bg-black border-b border-orange-600 shadow-2xl print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex flex-col cursor-pointer" onClick={() => { setCurrentView('list'); setAdminTab('estoque'); }}>
-            <h1 className="text-2xl font-black tracking-tighter uppercase text-white leading-none">
+          <div className="flex flex-col cursor-pointer shrink-0" onClick={() => { setCurrentView('list'); setAdminTab('estoque'); }}>
+            <h1 className="text-xl md:text-2xl font-black tracking-tighter uppercase text-white leading-none">
               FM <span className="text-orange-600">- Vendas</span>
             </h1>
-            <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mt-1">
+            <span className="hidden md:block text-zinc-400 text-[10px] font-bold uppercase tracking-widest mt-1">
               Especialista em Scooter
             </span>
           </div>
-          <nav className="flex items-center gap-3 md:gap-6">
+          <nav className="flex items-center gap-1.5 md:gap-6">
             {isAdmin ? (
               <>
                 {/* Desktop Tabs */}
@@ -390,13 +472,13 @@ export default function App() {
                 <div className="relative md:hidden">
                   <button 
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-white uppercase tracking-wider"
+                    className="flex items-center gap-1.5 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider"
                   >
-                    {currentView === 'acessorios' && <><Wrench size={16} /> Acessórios</>}
-                    {currentView !== 'acessorios' && adminTab === 'estoque' && <><Package size={16} /> Motos</>}
-                    {currentView !== 'acessorios' && adminTab === 'vendas' && <><History size={16} /> Vendas</>}
-                    {currentView !== 'acessorios' && adminTab === 'compra' && <><ShoppingCart size={16} /> Compra</>}
-                    {currentView !== 'acessorios' && adminTab === 'taxas' && <><Percent size={16} /> Taxas</>}
+                    {currentView === 'acessorios' && <><Wrench size={14} /> Acessórios</>}
+                    {currentView !== 'acessorios' && adminTab === 'estoque' && <><Package size={14} /> Motos</>}
+                    {currentView !== 'acessorios' && adminTab === 'vendas' && <><History size={14} /> Vendas</>}
+                    {currentView !== 'acessorios' && adminTab === 'compra' && <><ShoppingCart size={14} /> Compra</>}
+                    {currentView !== 'acessorios' && adminTab === 'taxas' && <><Percent size={14} /> Taxas</>}
                     <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
@@ -476,10 +558,10 @@ export default function App() {
                 <div className="relative md:hidden">
                   <button 
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-white uppercase tracking-wider"
+                    className="flex items-center gap-1.5 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider"
                   >
-                    {currentView === 'list' && <><Package size={16} /> Motos</>}
-                    {currentView === 'acessorios' && <><Wrench size={16} /> Acessórios</>}
+                    {currentView === 'list' && <><Package size={14} /> Motos</>}
+                    {currentView === 'acessorios' && <><Wrench size={14} /> Acessórios</>}
                     <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
@@ -507,17 +589,17 @@ export default function App() {
               </>
             )}
             
-            <div className="h-8 w-px bg-zinc-800 mx-2" />
+            <div className="hidden md:block h-8 w-px bg-zinc-800 mx-1 md:mx-2" />
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 md:gap-4">
               <button 
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-xl transition-all border border-zinc-800"
+                className="relative p-1.5 md:p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-lg md:rounded-xl transition-all border border-zinc-800"
                 title="Carrinho"
               >
-                <ShoppingCart size={20} />
+                <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
                 {cart.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-orange-600 text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
+                  <span className="absolute -top-1.5 -right-1.5 md:-top-2 md:-right-2 bg-orange-600 text-black text-[8px] md:text-[10px] font-black w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center border-2 border-black">
                     {cart.reduce((a, b) => a + b.quantidade, 0)}
                   </span>
                 )}
@@ -531,20 +613,20 @@ export default function App() {
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-xl transition-all border border-zinc-800"
+                    className="p-1.5 md:p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-lg md:rounded-xl transition-all border border-zinc-800"
                     title="Sair"
                   >
-                    <LogOut size={20} />
+                    <LogOut className="w-4 h-4 md:w-5 md:h-5" />
                   </button>
                 </>
               ) : (
                 <button
                   onClick={handleLogin}
                   disabled={isLoggingIn}
-                  className="p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-xl transition-all border border-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-1.5 md:p-2.5 bg-zinc-900 text-zinc-400 hover:text-orange-500 hover:bg-zinc-800 rounded-lg md:rounded-xl transition-all border border-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Login Admin"
                 >
-                  <LogIn size={20} />
+                  <LogIn className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
               )}
             </div>
@@ -675,5 +757,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </>
   );
 }

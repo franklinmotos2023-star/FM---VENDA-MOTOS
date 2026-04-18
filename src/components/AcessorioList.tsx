@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Acessorio } from '../types';
 import { Plus, Edit, Trash2, Tag, ChevronLeft, ChevronRight, PackageOpen, ShoppingCart, Search, Filter, ArrowUpDown, ChevronDown, Archive, ArchiveRestore, X } from 'lucide-react';
 import AcessorioConfigManager from './AcessorioConfigManager';
+import AcessorioFilterManager from './AcessorioFilterManager';
 import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
 
 interface AcessorioListProps {
@@ -31,7 +32,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
   const [filterModeloMoto, setFilterModeloMoto] = useState('all');
   const [filterCategoria, setFilterCategoria] = useState('all');
   const [sortBy, setSortBy] = useState('relevance');
-  const [adminTab, setAdminTab] = useState<'ativos' | 'arquivados' | 'zerados' | 'marcas_motos'>('ativos');
+  const [adminTab, setAdminTab] = useState<'ativos' | 'arquivados' | 'zerados' | 'marcas_motos' | 'personalizacao'>('ativos');
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -194,7 +195,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
         >
           Todos
         </button>
-        {['Kit Transmissão', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes'].map(cat => (
+        {(config.categorias?.length ? config.categorias : ['Kit Transmissão', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes', 'Outros']).map(cat => (
           <button
             key={cat}
             onClick={() => setFilterCategoria(cat)}
@@ -225,7 +226,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             onClick={() => setAdminTab('arquivados')}
             className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs whitespace-nowrap transition-all ${
               adminTab === 'arquivados' 
-                ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
+                ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.3)]' 
                 : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800'
             }`}
           >
@@ -235,7 +236,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             onClick={() => setAdminTab('zerados')}
             className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs whitespace-nowrap transition-all ${
               adminTab === 'zerados' 
-                ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
+                ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.3)]' 
                 : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800'
             }`}
           >
@@ -245,17 +246,29 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             onClick={() => setAdminTab('marcas_motos')}
             className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs whitespace-nowrap transition-all ${
               adminTab === 'marcas_motos' 
-                ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
+                ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]' 
                 : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800'
             }`}
           >
             Marcas & Motos
+          </button>
+          <button
+            onClick={() => setAdminTab('personalizacao')}
+            className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs whitespace-nowrap transition-all ${
+              adminTab === 'personalizacao' 
+                ? 'bg-zinc-500 text-white shadow-[0_0_15px_rgba(113,113,122,0.3)]' 
+                : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800'
+            }`}
+          >
+            Personalização
           </button>
         </div>
       )}
 
       {adminTab === 'marcas_motos' ? (
         <AcessorioConfigManager />
+      ) : adminTab === 'personalizacao' ? (
+        <AcessorioFilterManager />
       ) : (
         <>
           {/* Filters and Sorting Bar */}

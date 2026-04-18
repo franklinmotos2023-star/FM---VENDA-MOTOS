@@ -209,7 +209,7 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
           <div className="space-y-2 md:col-span-3">
             <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Categoria</label>
             <div className="flex flex-wrap gap-2">
-              {['Kit Transmissão', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes', 'Outros'].map(cat => (
+              {(config.categorias?.length ? config.categorias : ['Kit Transmissão', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes', 'Outros']).map(cat => (
                 <button
                   key={cat}
                   type="button"

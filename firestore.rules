@@ -114,7 +114,7 @@ service cloud.firestore {
              data.compradorCpf is string && data.compradorCpf.size() > 0 &&
              data.telefone is string && data.telefone.size() > 0 &&
              data.dataVenda is string &&
-             data.status in ['pendente', 'concluida', 'cancelada'] &&
+             data.status in ['pendente', 'em_separacao', 'aguardando_cliente', 'concluida', 'cancelada'] &&
              (!('cep' in data) || data.cep is string) &&
              (!('endereco' in data) || data.endereco is string);
     }

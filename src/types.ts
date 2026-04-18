@@ -168,6 +168,7 @@ export type Acessorio = {
 export type AcessoriosConfig = {
   marcas: string[];
   motos: string[];
+  categorias?: string[];
 };
 
 export type CartItem = {
@@ -190,7 +191,7 @@ export type AcessorioSaleRecord = {
   cep?: string;
   endereco?: string;
   dataVenda: string;
-  status: 'pendente' | 'concluida' | 'cancelada';
+  status: 'pendente' | 'em_separacao' | 'aguardando_cliente' | 'concluida' | 'cancelada';
 };
 
 declare global {

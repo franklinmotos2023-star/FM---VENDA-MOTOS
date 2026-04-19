@@ -192,6 +192,10 @@ export type AcessorioSaleRecord = {
   endereco?: string;
   dataVenda: string;
   status: 'pendente' | 'em_separacao' | 'aguardando_cliente' | 'concluida' | 'cancelada';
+  whatsappAvisado?: boolean;
+  codigoConfirmacao?: string;
+  observacoes?: string;
+  fotosRecibo?: string[];
 };
 
 declare global {

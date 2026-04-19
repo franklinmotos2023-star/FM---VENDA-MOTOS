@@ -116,7 +116,11 @@ service cloud.firestore {
              data.dataVenda is string &&
              data.status in ['pendente', 'em_separacao', 'aguardando_cliente', 'concluida', 'cancelada'] &&
              (!('cep' in data) || data.cep is string) &&
-             (!('endereco' in data) || data.endereco is string);
+             (!('endereco' in data) || data.endereco is string) &&
+             (!('whatsappAvisado' in data) || data.whatsappAvisado is bool) &&
+             (!('codigoConfirmacao' in data) || data.codigoConfirmacao is string) &&
+             (!('observacoes' in data) || data.observacoes is string) &&
+             (!('fotosRecibo' in data) || data.fotosRecibo is list);
     }
 
     // Rules
@@ -132,8 +136,7 @@ service cloud.firestore {
       allow create: if isAdmin() && isValidAcessorio(request.resource.data);
       allow update: if (isAdmin() && isValidAcessorio(request.resource.data)) || 
                        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estoque']) && 
-                        request.resource.data.estoque < resource.data.estoque && 
-                        request.resource.data.estoque >= 0);
+                        request.resource.data.estoque < resource.data.estoque);
       allow delete: if isAdmin();
     }
 

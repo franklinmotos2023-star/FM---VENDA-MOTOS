@@ -340,31 +340,6 @@ export default function AdminHistory({ motos }: AdminHistoryProps) {
           </div>
         </div>
       )}
-
-      {acessorioSaleToDelete && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-2">Excluir Pedido</h3>
-            <p className="text-zinc-400 mb-6">
-              Tem certeza que deseja excluir este pedido de acessório? Esta ação não pode ser desfeita.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setAcessorioSaleToDelete(null)}
-                className="flex-1 py-3 px-4 bg-zinc-800 text-white rounded-xl font-bold hover:bg-zinc-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDeleteAcessorioSale}
-                className="flex-1 py-3 px-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors"
-              >
-                Excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

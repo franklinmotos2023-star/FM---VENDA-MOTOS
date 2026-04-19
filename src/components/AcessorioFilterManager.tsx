@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { Plus, Trash2, Filter } from 'lucide-react';
+import { Plus, Trash2, Filter, GripVertical } from 'lucide-react';
 import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
 
 export default function AcessorioFilterManager() {
   const config = useAcessoriosConfig();
   const [newCategoria, setNewCategoria] = useState('');
+  
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const categorias = config.categorias?.length ? config.categorias : ['Kit Transmissão', 'Peças Elétricas', 'Carenagem', 'Acessórios', 'Capacetes', 'Outros'];
 
@@ -23,6 +26,30 @@ export default function AcessorioFilterManager() {
     await setDoc(doc(db, 'settings', 'acessoriosConfig'), { ...config, categorias: updatedCategorias }, { merge: true });
   };
 
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnter = (index: number) => {
+    if (draggedIndex === null) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDragEnd = async () => {
+    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+      const updatedCategorias = [...categorias];
+      const draggedItem = updatedCategorias[draggedIndex];
+      
+      // Remove item and insert at new position
+      updatedCategorias.splice(draggedIndex, 1);
+      updatedCategorias.splice(dragOverIndex, 0, draggedItem);
+
+      await setDoc(doc(db, 'settings', 'acessoriosConfig'), { ...config, categorias: updatedCategorias }, { merge: true });
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -33,7 +60,7 @@ export default function AcessorioFilterManager() {
             </div>
             <div>
               <h3 className="text-xl font-black text-white uppercase tracking-tight">Categorias (Filtros)</h3>
-              <p className="text-xs text-zinc-500 font-medium">Personalize os filtros de busca</p>
+              <p className="text-xs text-zinc-500 font-medium">Personalize e ordene arrastando</p>
             </div>
           </div>
         </div>
@@ -49,16 +76,30 @@ export default function AcessorioFilterManager() {
           <button
             type="submit"
             disabled={!newCategoria.trim()}
-            className="px-6 bg-orange-600 text-black font-black rounded-xl hover:bg-orange-500 disabled:opacity-50 disabled:hover:bg-orange-600 transition-all uppercase tracking-wider text-sm flex items-center justify-center"
+            className="px-6 bg-orange-600 text-white font-black rounded-xl hover:bg-orange-500 disabled:opacity-50 disabled:hover:bg-orange-600 transition-all uppercase tracking-wider text-sm flex items-center justify-center"
           >
             <Plus size={20} />
           </button>
         </form>
 
         <div className="space-y-2">
-          {categorias.map(cat => (
-            <div key={cat} className="flex items-center justify-between bg-zinc-950 border border-zinc-800 p-3 rounded-xl">
-              <span className="text-zinc-300 font-bold uppercase tracking-wider text-xs">{cat}</span>
+          {categorias.map((cat, index) => (
+            <div 
+              key={cat} 
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragEnter={() => handleDragEnter(index)}
+              onDragEnd={handleDragEnd}
+              onDragOver={(e) => e.preventDefault()}
+              className={`flex items-center justify-between bg-zinc-950 border p-3 rounded-xl cursor-grab active:cursor-grabbing transition-all ${
+                draggedIndex === index ? 'opacity-50 scale-[0.98] border-orange-500' : 
+                dragOverIndex === index ? 'border-orange-500 relative before:absolute before:-top-1 before:left-0 before:right-0 before:h-0.5 before:bg-orange-500' : 'border-zinc-800'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <GripVertical size={16} className="text-zinc-600" />
+                <span className="text-zinc-300 font-bold uppercase tracking-wider text-xs select-none">{cat}</span>
+              </div>
               <button
                 onClick={() => handleRemoveCategoria(cat)}
                 className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"

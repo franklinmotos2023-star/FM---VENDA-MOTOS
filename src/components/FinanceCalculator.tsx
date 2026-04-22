@@ -24,6 +24,8 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
 
   const [financiamentoStep, setFinanciamentoStep] = useState<'dados_pessoais' | 'dados_moto' | 'proposta_enviada' | 'questionario'>('dados_pessoais');
   const [isConfirmingFinanciamento, setIsConfirmingFinanciamento] = useState(false);
+  const [showLgpdModal, setShowLgpdModal] = useState(false);
+  const [lgpdAccepted, setLgpdAccepted] = useState(false);
   const [questionario, setQuestionario] = useState({
     tempoCompra: '',
     sistemaSimulacao: '',
@@ -604,86 +606,12 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
                   <button
                     type="button"
                     onClick={() => {
-                      setIsConfirmingFinanciamento(true);
-                      setTimeout(() => {
-                        setIsConfirmingFinanciamento(false);
-                        setFinanciamentoStep('dados_moto');
-                      }, 1000);
+                      setShowLgpdModal(true);
                     }}
-                    disabled={!buyerData.nome || !buyerData.cpf || !buyerData.telefone || !buyerData.email || !buyerData.cep || isConfirmingFinanciamento}
+                    disabled={!buyerData.nome || !buyerData.cpf || !buyerData.telefone || !buyerData.email || !buyerData.cep}
                     className="w-full py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-colors shadow-[0_0_15px_rgba(234,88,12,0.3)] disabled:opacity-70 flex justify-center items-center uppercase tracking-wider text-sm"
                   >
-                    {isConfirmingFinanciamento ? <span className="animate-pulse">Confirmando...</span> : 'Confirmar Dados'}
-                  </button>
-                </motion.div>
-              )}
-
-              {financiamentoStep === 'dados_moto' && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                  <div className="bg-orange-600/10 border border-orange-600/30 p-6 rounded-2xl">
-                    <h3 className="text-lg font-black text-orange-500 uppercase tracking-wider mb-2">Dados da Moto</h3>
-                    <p className="text-sm text-zinc-300">Confirme os dados do veículo para enviar a proposta.</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Marca</label>
-                      <input type="text" disabled value={moto.marcaModelo.split(' ')[0]} className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 cursor-not-allowed" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Modelo</label>
-                      <input type="text" disabled value={moto.marcaModelo.split(' ').slice(1).join(' ') || moto.marcaModelo} className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 cursor-not-allowed" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Ano</label>
-                      <input type="text" disabled value={`${moto.anoFabricacao}/${moto.anoModelo}`} className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 cursor-not-allowed" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Valor</label>
-                      <input type="text" disabled value={formatCurrency(moto.precoAVista)} className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 cursor-not-allowed" />
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setIsConfirmingFinanciamento(true);
-                      try {
-                        const saleRecord: SaleRecord = {
-                          motoId: moto.id,
-                          motoMarcaModelo: moto.marcaModelo,
-                          motoPlaca: moto.placa,
-                          compradorNome: buyerData.nome,
-                          compradorCpf: buyerData.cpf,
-                          telefone: buyerData.telefone,
-                          email: buyerData.email,
-                          cep: buyerData.cep,
-                          valorVenda: moto.precoAVista,
-                          entrada: 0,
-                          parcelas: 1,
-                          valorParcela: 0,
-                          dataVenda: new Date().toISOString(),
-                          vendedorUid: 'cliente',
-                          status: 'pendente',
-                          financiamentoBancario: {}
-                        };
-                        const docRef = doc(collection(db, 'sales'));
-                        await setDoc(docRef, saleRecord);
-                        // Store the ID to update later
-                        setQuestionario(prev => ({ ...prev, proposalId: docRef.id }));
-                        
-                        setTimeout(() => {
-                          setIsConfirmingFinanciamento(false);
-                          setFinanciamentoStep('proposta_enviada');
-                        }, 500);
-                      } catch (error) {
-                        console.error("Error saving proposal:", error);
-                        alert("Erro ao enviar proposta. Tente novamente.");
-                        setIsConfirmingFinanciamento(false);
-                      }
-                    }}
-                    disabled={isConfirmingFinanciamento}
-                    className="w-full py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-colors shadow-[0_0_15px_rgba(234,88,12,0.3)] disabled:opacity-70 flex justify-center items-center uppercase tracking-wider text-sm"
-                  >
-                    {isConfirmingFinanciamento ? <span className="animate-pulse">Enviando Proposta...</span> : 'Confirmar Dados da Moto e Enviar Proposta'}
+                    Confirmar Dados
                   </button>
                 </motion.div>
               )}
@@ -977,6 +905,101 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* LGPD Modal */}
+      {showLgpdModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-zinc-900 rounded-2xl w-full max-w-md border border-zinc-800 shadow-2xl p-6"
+          >
+            <h3 className="text-xl font-black text-white uppercase tracking-tight mb-4 border-b border-zinc-800 pb-4">
+              Aviso de Privacidade
+            </h3>
+            <p className="text-sm text-zinc-300 mb-6 leading-relaxed">
+              Estou ciente de que meus dados serão utilizados para simulações de financiamento pela empresa Franklin Motos.
+            </p>
+            
+            <label className="flex items-center gap-3 p-4 bg-zinc-950 rounded-xl border border-zinc-800 cursor-pointer hover:border-orange-500/50 transition-colors mb-6 group">
+              <div className="relative flex items-center">
+                <input
+                  type="checkbox"
+                  checked={lgpdAccepted}
+                  onChange={(e) => setLgpdAccepted(e.target.checked)}
+                  className="w-5 h-5 rounded border-zinc-700 text-orange-600 focus:ring-orange-600 focus:ring-offset-zinc-900 bg-zinc-900 appearance-none peer"
+                />
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
+                  <CheckCircle2 size={14} className="fill-orange-600 text-white" />
+                </div>
+              </div>
+              <span className="text-sm font-bold text-white uppercase tracking-wider group-hover:text-orange-500 transition-colors">
+                Estou ciente e aceito
+              </span>
+            </label>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLgpdModal(false);
+                  setLgpdAccepted(false);
+                }}
+                className="flex-1 py-3 px-4 bg-zinc-800 text-white rounded-xl font-bold hover:bg-zinc-700 transition-colors uppercase tracking-wider text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={!lgpdAccepted || isConfirmingFinanciamento}
+                onClick={async () => {
+                  setIsConfirmingFinanciamento(true);
+                  try {
+                    const saleRecord: SaleRecord = {
+                      motoId: moto.id,
+                      motoMarcaModelo: moto.marcaModelo,
+                      motoPlaca: moto.placa,
+                      compradorNome: buyerData.nome,
+                      compradorCpf: buyerData.cpf,
+                      telefone: buyerData.telefone,
+                      email: buyerData.email,
+                      cep: buyerData.cep,
+                      valorVenda: moto.precoAVista,
+                      entrada: 0,
+                      parcelas: 1,
+                      valorParcela: 0,
+                      dataVenda: new Date().toISOString(),
+                      vendedorUid: 'cliente',
+                      status: 'pendente',
+                      financiamentoBancario: {}
+                    };
+                    const docRef = doc(collection(db, 'sales'));
+                    await setDoc(docRef, saleRecord);
+                    setQuestionario(prev => ({ ...prev, proposalId: docRef.id }));
+                    
+                    setTimeout(() => {
+                      setIsConfirmingFinanciamento(false);
+                      setShowLgpdModal(false);
+                      setFinanciamentoStep('proposta_enviada');
+                    }, 500);
+                  } catch (error) {
+                    console.error("Error saving proposal:", error);
+                    alert("Erro ao enviar proposta. Tente novamente.");
+                    setIsConfirmingFinanciamento(false);
+                  }
+                }}
+                className={`flex-1 py-3 px-4 rounded-xl font-black transition-colors uppercase tracking-wider text-sm flex justify-center items-center ${
+                  lgpdAccepted 
+                    ? 'bg-orange-600 text-black hover:bg-orange-500 shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
+                    : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                }`}
+              >
+                {isConfirmingFinanciamento ? 'Enviando...' : 'Confirmar'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

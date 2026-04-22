@@ -226,9 +226,9 @@ export default function SaleProcessor({ sale, moto, onClose, readOnly = false }:
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-zinc-900 rounded-3xl w-full max-w-4xl border border-zinc-800 shadow-2xl my-8">
-        <div className="sticky top-0 bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-800 p-6 flex justify-between items-center rounded-t-3xl z-10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-zinc-900 rounded-3xl w-full max-w-4xl border border-zinc-800 shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex-shrink-0 bg-zinc-900 border-b border-zinc-800 p-6 flex justify-between items-center rounded-t-3xl z-10">
           <div>
             <h2 className="text-2xl font-black text-white uppercase tracking-tight">Finalizar Venda</h2>
             <p className="text-orange-500 font-mono text-sm">{sale.motoMarcaModelo} - {sale.motoPlaca}</p>
@@ -238,7 +238,7 @@ export default function SaleProcessor({ sale, moto, onClose, readOnly = false }:
           </button>
         </div>
 
-        <div className="p-6 space-y-8">
+        <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar flex-1">
           {/* Resumo Original */}
           <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800 space-y-6">
             <div>
@@ -491,7 +491,7 @@ export default function SaleProcessor({ sale, moto, onClose, readOnly = false }:
           </div>
         </div>
 
-        <div className="p-6 border-t border-zinc-800 bg-zinc-950 rounded-b-3xl flex flex-col gap-4">
+        <div className="flex-shrink-0 p-6 border-t border-zinc-800 bg-zinc-950 rounded-b-3xl flex flex-col gap-4">
           {saveError && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-xl text-xs font-bold text-center">
               {saveError}

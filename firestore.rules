@@ -66,6 +66,8 @@ service cloud.firestore {
              data.valorParcela is number && data.valorParcela >= 0 &&
              (!('email' in data) || data.email is string) &&
              (!('cep' in data) || data.cep is string) &&
+             (!('dataNascimento' in data) || data.dataNascimento is string) &&
+             (!('possuiCnh' in data) || data.possuiCnh is bool) &&
              (!('motoPlaca' in data) || data.motoPlaca is string) &&
              (!('vendedorUid' in data) || data.vendedorUid is string) &&
              (!('dataFinalizacao' in data) || data.dataFinalizacao is string) &&

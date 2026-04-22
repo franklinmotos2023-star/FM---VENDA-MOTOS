@@ -267,6 +267,18 @@ export default function SaleProcessor({ sale, moto, onClose, readOnly = false }:
                   <span className="block text-zinc-500 font-bold uppercase text-xs">CEP</span>
                   <span className="text-white font-medium">{sale.cep || '-'}</span>
                 </div>
+                {sale.dataNascimento && (
+                  <div>
+                    <span className="block text-zinc-500 font-bold uppercase text-xs">Data Nasc.</span>
+                    <span className="text-white font-medium">{sale.dataNascimento.split('-').reverse().join('/')}</span>
+                  </div>
+                )}
+                {sale.possuiCnh !== undefined && (
+                  <div>
+                    <span className="block text-zinc-500 font-bold uppercase text-xs">Possui CNH?</span>
+                    <span className="text-white font-medium">{sale.possuiCnh ? 'Sim' : 'Não'}</span>
+                  </div>
+                )}
                 <div>
                   <span className="block text-zinc-500 font-bold uppercase text-xs">Valor Base Simulado</span>
                   <span className="text-white font-medium">{formatCurrency(sale.valorVenda)}</span>

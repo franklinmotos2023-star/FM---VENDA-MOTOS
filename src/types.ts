@@ -63,6 +63,8 @@ export type SaleRecord = {
   telefone: string;
   email?: string;
   cep?: string;
+  dataNascimento?: string;
+  possuiCnh?: boolean;
   
   // Valores da simulação original
   valorVenda: number;

@@ -91,7 +91,7 @@ export type SaleRecord = {
   // Diferenciais acordados na venda
   diferenciais?: {
     dutIncluso: boolean;
-    garantia3Meses: boolean;
+    garantia6Meses: boolean;
     tanqueCheio: boolean;
     capacete: boolean;
     revisao: boolean;

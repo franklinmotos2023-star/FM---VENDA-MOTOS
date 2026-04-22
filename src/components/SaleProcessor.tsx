@@ -24,7 +24,7 @@ export default function SaleProcessor({ sale, moto, onClose, readOnly = false }:
   
   const [diferenciais, setDiferenciais] = useState({
     dutIncluso: sale.diferenciais?.dutIncluso ?? true,
-    garantia3Meses: sale.diferenciais?.garantia3Meses ?? true,
+    garantia6Meses: sale.diferenciais?.garantia6Meses ?? true,
     tanqueCheio: sale.diferenciais?.tanqueCheio ?? false,
     capacete: sale.diferenciais?.capacete ?? false,
     revisao: sale.diferenciais?.revisao ?? true,
@@ -240,29 +240,65 @@ export default function SaleProcessor({ sale, moto, onClose, readOnly = false }:
 
         <div className="p-6 space-y-8">
           {/* Resumo Original */}
-          <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <FileText size={20} className="text-orange-500" />
-              Dados da Proposta Original
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <span className="block text-zinc-500 font-bold uppercase text-xs">Cliente</span>
-                <span className="text-white font-medium">{sale.compradorNome}</span>
-              </div>
-              <div>
-                <span className="block text-zinc-500 font-bold uppercase text-xs">Telefone</span>
-                <span className="text-white font-medium">{sale.telefone}</span>
-              </div>
-              <div>
-                <span className="block text-zinc-500 font-bold uppercase text-xs">Valor Simulado</span>
-                <span className="text-white font-medium">{formatCurrency(sale.valorVenda)}</span>
-              </div>
-              <div>
-                <span className="block text-zinc-500 font-bold uppercase text-xs">Proposta</span>
-                <span className="text-orange-500 font-bold">{formatCurrency(sale.entrada)} + {sale.parcelas}x de {formatCurrency(sale.valorParcela)}</span>
+          <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800 space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <FileText size={20} className="text-orange-500" />
+                Dados da Proposta Original
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                <div>
+                  <span className="block text-zinc-500 font-bold uppercase text-xs">Cliente</span>
+                  <span className="text-white font-medium">{sale.compradorNome}</span>
+                </div>
+                <div>
+                  <span className="block text-zinc-500 font-bold uppercase text-xs">CPF</span>
+                  <span className="text-white font-medium">{sale.compradorCpf || '-'}</span>
+                </div>
+                <div>
+                  <span className="block text-zinc-500 font-bold uppercase text-xs">Telefone</span>
+                  <span className="text-white font-medium">{sale.telefone}</span>
+                </div>
+                <div>
+                  <span className="block text-zinc-500 font-bold uppercase text-xs">Email</span>
+                  <span className="text-white font-medium">{sale.email || '-'}</span>
+                </div>
+                <div>
+                  <span className="block text-zinc-500 font-bold uppercase text-xs">CEP</span>
+                  <span className="text-white font-medium">{sale.cep || '-'}</span>
+                </div>
+                <div>
+                  <span className="block text-zinc-500 font-bold uppercase text-xs">Valor Base Simulado</span>
+                  <span className="text-white font-medium">{formatCurrency(sale.valorVenda)}</span>
+                </div>
+                <div className="md:col-span-2">
+                  <span className="block text-zinc-500 font-bold uppercase text-xs">Proposta de Pagamento</span>
+                  <span className="text-orange-500 font-bold">{formatCurrency(sale.entrada)} + {sale.parcelas}x de {formatCurrency(sale.valorParcela)}</span>
+                </div>
               </div>
             </div>
+
+            {sale.financiamentoBancario?.questionario && (
+              <div>
+                <h3 className="text-sm font-bold text-zinc-400 mb-3 uppercase tracking-widest flex items-center gap-2">
+                  Questionário de Avaliação (Cliente)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                  <div>
+                    <span className="block text-zinc-500 font-bold uppercase text-xs">Tempo Certo de Compra</span>
+                    <span className="text-white font-medium">{sale.financiamentoBancario.questionario.tempoCompra}</span>
+                  </div>
+                  <div>
+                    <span className="block text-zinc-500 font-bold uppercase text-xs">Feedback da Simulação</span>
+                    <span className="text-white font-medium">{sale.financiamentoBancario.questionario.sistemaSimulacao}</span>
+                  </div>
+                  <div>
+                    <span className="block text-zinc-500 font-bold uppercase text-xs">Aprovação dos Preços</span>
+                    <span className="text-white font-medium">{sale.financiamentoBancario.questionario.precos}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

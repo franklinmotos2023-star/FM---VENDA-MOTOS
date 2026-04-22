@@ -64,7 +64,13 @@ service cloud.firestore {
              data.entrada is number && data.entrada >= 0 &&
              data.parcelas is int && data.parcelas > 0 &&
              data.valorParcela is number && data.valorParcela >= 0 &&
+             (!('email' in data) || data.email is string) &&
              (!('cep' in data) || data.cep is string) &&
+             (!('motoPlaca' in data) || data.motoPlaca is string) &&
+             (!('vendedorUid' in data) || data.vendedorUid is string) &&
+             (!('dataFinalizacao' in data) || data.dataFinalizacao is string) &&
+             (!('pagamentoAVista' in data) || data.pagamentoAVista is bool) &&
+             (!('financiamentoBancario' in data) || data.financiamentoBancario is map) &&
              (!('valorVendaFinal' in data) || data.valorVendaFinal is number) &&
              (!('descontoAplicado' in data) || data.descontoAplicado is number) &&
              (!('pagamentos' in data) || data.pagamentos is list) &&
@@ -160,7 +166,8 @@ service cloud.firestore {
     match /sales/{saleId} {
       allow read: if isAdmin();
       allow create: if isValidSale(request.resource.data);
-      allow update: if isAdmin() && isValidSale(request.resource.data);
+      allow update: if (isAdmin() && isValidSale(request.resource.data)) || 
+                       (isValidSale(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['financiamentoBancario']));
       allow delete: if isAdmin();
     }
 

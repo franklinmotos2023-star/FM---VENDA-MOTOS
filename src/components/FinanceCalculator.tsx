@@ -670,6 +670,14 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
                   <p className="text-zinc-400 max-w-md mx-auto">
                     Sua proposta de financiamento foi enviada com sucesso. Nossa equipe analisará os dados e entrará em contato em breve.
                   </p>
+                  
+                  <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 max-w-sm mx-auto flex items-start gap-3 text-left">
+                    <Info size={20} className="text-orange-500 shrink-0 mt-0.5" />
+                    <p className="text-xs font-bold text-orange-400 uppercase tracking-widest leading-relaxed">
+                      A confirmação via WhatsApp pode acelerar o seu processo de atendimento.
+                    </p>
+                  </div>
+
                   <div className="flex flex-col gap-4 max-w-sm mx-auto mt-8">
                     <button
                       type="button"

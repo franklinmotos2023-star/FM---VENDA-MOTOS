@@ -222,10 +222,10 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
         compradorNome: buyerData.nome,
         compradorCpf: buyerData.cpf,
         telefone: buyerData.telefone,
-        email: buyerData.email,
-        cep: buyerData.cep,
-        dataNascimento: buyerData.dataNascimento,
-        possuiCnh: buyerData.possuiCnh !== null ? buyerData.possuiCnh : undefined,
+        ...(buyerData.email ? { email: buyerData.email } : {}),
+        ...(buyerData.cep ? { cep: buyerData.cep } : {}),
+        ...(buyerData.dataNascimento ? { dataNascimento: buyerData.dataNascimento } : {}),
+        ...(buyerData.possuiCnh !== null ? { possuiCnh: buyerData.possuiCnh } : {}),
         valorVenda: paymentMethod === 'avista' ? moto.precoAVista - 500 : (resultado?.valorFinal || moto.precoAVista),
         entrada: paymentMethod === 'avista' ? moto.precoAVista - 500 : (resultado?.entrada || 0),
         parcelas: paymentMethod === 'avista' ? 1 : (resultado?.parcelas || 1),
@@ -322,16 +322,66 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
                 />
               </div>
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                  <CreditCard size={14} className="text-orange-500" /> CPF
-                </label>
+                <div className="flex justify-between items-center">
+                  <label className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                    <CreditCard size={14} className="text-orange-500" /> CPF (11 dígitos)
+                  </label>
+                  {buyerData.cpf && buyerData.cpf.replace(/\D/g, '').length !== 11 && (
+                    <span className="text-[10px] text-red-500 bg-red-500/10 px-2 py-0.5 rounded font-bold">Incompleto</span>
+                  )}
+                </div>
                 <input
                   type="text"
                   required
                   value={buyerData.cpf}
-                  onChange={(e) => setBuyerData({...buyerData, cpf: e.target.value})}
+                  onChange={(e) => setBuyerData({...buyerData, cpf: e.target.value.replace(/\D/g, '')})}
                   className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold"
-                  placeholder="000.000.000-00"
+                  placeholder="Apenas números"
+                  maxLength={11}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                    <Phone size={14} className="text-orange-500" /> Telefone (DDD + 9 dígitos)
+                  </label>
+                  {buyerData.telefone && buyerData.telefone.replace(/\D/g, '').length !== 11 && (
+                    <span className="text-[10px] text-red-500 bg-red-500/10 px-2 py-0.5 rounded font-bold">Incompleto</span>
+                  )}
+                </div>
+                <input
+                  type="tel"
+                  required
+                  value={buyerData.telefone}
+                  onChange={(e) => setBuyerData({...buyerData, telefone: e.target.value.replace(/\D/g, '')})}
+                  className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold"
+                  placeholder="Apenas números"
+                  maxLength={11}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  <User size={14} className="text-orange-500" /> Data de Nascimento
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={buyerData.dataNascimento}
+                  onChange={(e) => setBuyerData({...buyerData, dataNascimento: e.target.value})}
+                  className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold [color-scheme:dark]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  <User size={14} className="text-orange-500" /> Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={buyerData.email}
+                  onChange={(e) => setBuyerData({...buyerData, email: e.target.value})}
+                  className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold"
+                  placeholder="seu@email.com"
                 />
               </div>
               <div className="space-y-2">
@@ -347,18 +397,24 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
                   placeholder="00000-000"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                  <Phone size={14} className="text-orange-500" /> Telefone
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={buyerData.telefone}
-                  onChange={(e) => setBuyerData({...buyerData, telefone: e.target.value})}
-                  className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold"
-                  placeholder="(00) 00000-0000"
-                />
+              <div className="space-y-2 md:col-span-2">
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Possui CNH?</label>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setBuyerData({...buyerData, possuiCnh: true})}
+                    className={`flex-1 py-3 rounded-xl border-2 font-bold transition-all ${buyerData.possuiCnh === true ? 'border-orange-600 bg-orange-600/10 text-orange-500' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'}`}
+                  >
+                    Sim
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBuyerData({...buyerData, possuiCnh: false})}
+                    className={`flex-1 py-3 rounded-xl border-2 font-bold transition-all ${buyerData.possuiCnh === false ? 'border-orange-600 bg-orange-600/10 text-orange-500' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'}`}
+                  >
+                    Não
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -431,7 +487,16 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
               </button>
               <button
                 type="submit"
-                className="flex-1 py-4 bg-green-600 text-white rounded-xl font-black hover:bg-green-500 transition-all shadow-[0_0_20px_rgba(22,163,74,0.3)] flex justify-center items-center gap-3 uppercase tracking-wider text-sm"
+                disabled={
+                  !buyerData.nome || 
+                  buyerData.cpf.replace(/\D/g, '').length !== 11 || 
+                  buyerData.telefone.replace(/\D/g, '').length !== 11 || 
+                  !buyerData.email || 
+                  !buyerData.cep || 
+                  !buyerData.dataNascimento || 
+                  buyerData.possuiCnh === null
+                }
+                className="flex-1 py-4 bg-green-600 text-white rounded-xl font-black hover:bg-green-500 transition-all shadow-[0_0_20px_rgba(22,163,74,0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3 uppercase tracking-wider text-sm"
               >
                 <MessageCircle size={20} />
                 Confirmar via WhatsApp

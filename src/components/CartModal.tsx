@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { CartItem, AcessorioSaleRecord } from '../types';
-import { ShoppingCart, X, Plus, Minus, Trash2, CheckCircle2, MessageCircle, Info } from 'lucide-react';
+import { ShoppingCart, X, Plus, Minus, Trash2, CheckCircle2, MessageCircle, Info, CreditCard, Banknote } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
 
 interface CartModalProps {
   cart: CartItem[];
@@ -13,6 +14,7 @@ interface CartModalProps {
 }
 
 export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveItem, onClearCart }: CartModalProps) {
+  const config = useAcessoriosConfig();
   const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
   const [buyerData, setBuyerData] = useState({
     nome: '',
@@ -21,6 +23,7 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
     cep: '',
     endereco: ''
   });
+  const [paymentMethod, setPaymentMethod] = useState<'credito' | 'avista' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const subtotal = cart.reduce((acc, item) => {
@@ -30,7 +33,15 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
     return acc + (price * item.quantidade);
   }, 0);
 
-  const discount = subtotal * 0.05;
+  // Discount calculation based on payment method
+  let discountPercentage = 0;
+  if (paymentMethod === 'credito') {
+    discountPercentage = 0.10;
+  } else if (paymentMethod === 'avista') {
+    discountPercentage = 0.15;
+  }
+
+  const discount = subtotal * discountPercentage;
   const total = subtotal - discount;
 
   const formatCurrency = (value: number) => {
@@ -39,6 +50,10 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!paymentMethod) {
+      alert("Por favor, selecione uma forma de pagamento.");
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -56,7 +71,8 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
         cep: buyerData.cep,
         endereco: buyerData.endereco,
         dataVenda: new Date().toISOString(),
-        status: 'pendente'
+        status: 'pendente',
+        metodoPagamento: paymentMethod
       };
 
       await addDoc(collection(db, 'acessorio_sales'), saleRecord);
@@ -89,17 +105,18 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
       message += `- ${item.quantidade}x ${item.acessorio.nome} (${formatCurrency(price)})%0A`;
     });
 
-    const deliveryText = 'Retirada na Loja (5% de desconto)';
+    const paymentText = paymentMethod === 'credito' ? 'Cartão de Crédito (10% desconto)' : 'À Vista (15% desconto, Dinheiro/PIX/Débito)';
 
-    message += `%0A*SUBTOTAL:* ${formatCurrency(subtotal)}%0A`;
+    message += `%0A*FORMA DE PAGAMENTO:* ${paymentText}%0A`;
+    message += `*SUBTOTAL:* ${formatCurrency(subtotal)}%0A`;
     if (discount > 0) {
       message += `*DESCONTO:* -${formatCurrency(discount)}%0A`;
     }
     message += `*TOTAL A PAGAR:* ${formatCurrency(total)}%0A%0A` +
-      `*TIPO DE ENTREGA:* ${deliveryText}%0A%0A` +
-      `Gostaria de prosseguir com o pagamento e retirada/entrega deste pedido.`;
+      `Gostaria de prosseguir com o pagamento e retirada deste pedido.`;
 
-    return `https://wa.me/558532332200?text=${message}`;
+    const targetNumber = config.whatsappNumber || '558532332200';
+    return `https://wa.me/${targetNumber}?text=${message}`;
   };
 
   if (step === 'success') {
@@ -219,6 +236,30 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
               </div>
 
               <div className="space-y-3 pt-2">
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Forma de Pagamento</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('credito')}
+                    className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all ${paymentMethod === 'credito' ? 'border-orange-500 bg-orange-500/10 text-orange-500' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'}`}
+                  >
+                    <CreditCard size={24} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-center">Cartão de Crédito</span>
+                    <span className="text-[9px] text-green-500 font-bold bg-green-500/10 px-2 py-0.5 rounded">10% Desconto</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('avista')}
+                    className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all ${paymentMethod === 'avista' ? 'border-orange-500 bg-orange-500/10 text-orange-500' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'}`}
+                  >
+                    <Banknote size={24} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-center">À Vista (Pix/Din.)</span>
+                    <span className="text-[9px] text-green-500 font-bold bg-green-500/10 px-2 py-0.5 rounded">15% Desconto</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Tipo de Entrega</label>
                 <div className="bg-orange-600/10 border border-orange-500 p-4 rounded-xl flex items-center gap-3">
                   <div className="w-10 h-10 bg-orange-500/20 rounded-full flex items-center justify-center shrink-0">
@@ -226,7 +267,7 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
                   </div>
                   <div>
                     <p className="text-white font-bold text-sm">Retirada na Loja</p>
-                    <p className="text-green-500 font-bold text-xs">5% de Desconto Aplicado</p>
+                    <p className="text-zinc-400 font-medium text-xs">O desconto já está aplicado no total ao selecionar a forma de pagamento.</p>
                   </div>
                 </div>
               </div>
@@ -258,7 +299,7 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-green-500 font-bold">Desconto (Retirada)</span>
+                      <span className="text-green-500 font-bold">Desconto ({paymentMethod === 'credito' ? '10%' : '15%'})</span>
                       <span className="text-green-500 font-bold">-{formatCurrency(discount)}</span>
                     </div>
                   )}
@@ -278,7 +319,7 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
                   <button
                     type="submit"
                     form="checkout-form"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !paymentMethod}
                     className="flex-1 py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-all uppercase tracking-wider text-sm shadow-[0_0_20px_rgba(234,88,12,0.3)] disabled:opacity-50"
                   >
                     {isSubmitting ? 'Processando...' : 'Finalizar Pedido'}

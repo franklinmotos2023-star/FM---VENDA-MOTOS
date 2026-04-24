@@ -158,9 +158,11 @@ export type Acessorio = {
   precoPromocional?: number;
   emPromocao: boolean;
   fotos: string[];
-  aplicacao: string; // Motos compatíveis
-  marcaMoto?: string;
-  modeloMoto?: string;
+  aplicacao: string; // Legacy: Motos compatíveis text
+  marcaMoto?: string; // Legacy
+  modeloMoto?: string; // Legacy
+  marcasCompativeis?: string[];
+  modelosCompativeis?: string[];
   estoque: number;
   isArchived?: boolean;
   categoria?: string;
@@ -171,6 +173,7 @@ export type AcessoriosConfig = {
   marcas: string[];
   motos: string[];
   categorias?: string[];
+  whatsappNumber?: string;
 };
 
 export type CartItem = {
@@ -198,6 +201,7 @@ export type AcessorioSaleRecord = {
   codigoConfirmacao?: string;
   observacoes?: string;
   fotosRecibo?: string[];
+  metodoPagamento?: 'credito' | 'avista';
 };
 
 declare global {

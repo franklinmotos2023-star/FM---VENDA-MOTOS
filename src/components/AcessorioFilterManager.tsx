@@ -1,13 +1,29 @@
 import React, { useState, useRef } from 'react';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { Plus, Trash2, Filter, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Filter, GripVertical, Phone, Save } from 'lucide-react';
 import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
 
 export default function AcessorioFilterManager() {
   const config = useAcessoriosConfig();
   const [newCategoria, setNewCategoria] = useState('');
   
+  const [whatsapp, setWhatsapp] = useState(config.whatsappNumber || '');
+  const [isSavingWhatsapp, setIsSavingWhatsapp] = useState(false);
+
+  React.useEffect(() => {
+    if (config.whatsappNumber !== undefined && whatsapp === '') {
+      setWhatsapp(config.whatsappNumber);
+    }
+  }, [config.whatsappNumber]);
+
+  const handleSaveWhatsapp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingWhatsapp(true);
+    await setDoc(doc(db, 'settings', 'acessoriosConfig'), { ...config, whatsappNumber: whatsapp.replace(/\D/g, '') }, { merge: true });
+    setIsSavingWhatsapp(false);
+  };
+
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -52,6 +68,39 @@ export default function AcessorioFilterManager() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col gap-8">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center">
+                <Phone size={20} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white uppercase tracking-tight">WhatsApp Comercial</h3>
+                <p className="text-xs text-zinc-500 font-medium">Número para recebimento de pedidos</p>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveWhatsapp} className="flex gap-2">
+            <input
+              type="text"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+              placeholder="Ex: 85999999999"
+              className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-colors font-medium text-sm"
+            />
+            <button
+              type="submit"
+              disabled={isSavingWhatsapp}
+              className="px-6 bg-green-600 text-white font-black rounded-xl hover:bg-green-500 disabled:opacity-50 transition-all uppercase tracking-wider text-sm flex items-center justify-center"
+            >
+              {isSavingWhatsapp ? 'Salvando...' : <Save size={20} />}
+            </button>
+          </form>
+        </div>
+      </div>
+
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

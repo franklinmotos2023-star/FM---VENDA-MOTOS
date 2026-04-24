@@ -4,6 +4,7 @@ import { Plus, Edit, Trash2, Tag, ChevronLeft, ChevronRight, PackageOpen, Shoppi
 import AcessorioConfigManager from './AcessorioConfigManager';
 import AcessorioFilterManager from './AcessorioFilterManager';
 import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
+import MultiSelect from './MultiSelect';
 
 interface AcessorioListProps {
   acessorios: Acessorio[];
@@ -27,9 +28,9 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
   
   // Filters and Sorting State
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterAplicacao, setFilterAplicacao] = useState('all');
-  const [filterMarcaMoto, setFilterMarcaMoto] = useState('all');
-  const [filterModeloMoto, setFilterModeloMoto] = useState('all');
+  const [filterAplicacoes, setFilterAplicacoes] = useState<string[]>([]);
+  const [filterMarcasMoto, setFilterMarcasMoto] = useState<string[]>([]);
+  const [filterModelosMoto, setFilterModelosMoto] = useState<string[]>([]);
   const [filterCategoria, setFilterCategoria] = useState('all');
   const [sortBy, setSortBy] = useState('relevance');
   const [adminTab, setAdminTab] = useState<'ativos' | 'arquivados' | 'zerados' | 'marcas_motos' | 'personalizacao'>('ativos');
@@ -106,18 +107,24 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
     }
 
     // Application Filter
-    if (filterAplicacao !== 'all') {
-      result = result.filter(a => a.aplicacao === filterAplicacao);
+    if (filterAplicacoes.length > 0) {
+      result = result.filter(a => filterAplicacoes.includes(a.aplicacao));
     }
 
     // Marca Filter
-    if (filterMarcaMoto !== 'all') {
-      result = result.filter(a => a.marcaMoto === filterMarcaMoto);
+    if (filterMarcasMoto.length > 0) {
+      result = result.filter(a => {
+        const marcas = a.marcasCompativeis || (a.marcaMoto ? [a.marcaMoto] : []);
+        return filterMarcasMoto.some(m => marcas.includes(m));
+      });
     }
 
     // Modelo Filter
-    if (filterModeloMoto !== 'all') {
-      result = result.filter(a => a.modeloMoto === filterModeloMoto);
+    if (filterModelosMoto.length > 0) {
+      result = result.filter(a => {
+        const modelos = a.modelosCompativeis || (a.modeloMoto ? [a.modeloMoto] : []);
+        return filterModelosMoto.some(m => modelos.includes(m));
+      });
     }
 
     // Category Filter
@@ -143,7 +150,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
     });
 
     return result;
-  }, [acessorios, searchTerm, filterAplicacao, filterMarcaMoto, filterModeloMoto, filterCategoria, sortBy, adminTab, isAdmin]);
+  }, [acessorios, searchTerm, filterAplicacoes, filterMarcasMoto, filterModelosMoto, filterCategoria, sortBy, adminTab, isAdmin]);
 
   if (acessorios.length === 0 && !isAdmin) {
     return (
@@ -284,51 +291,35 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
           />
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide shrink-0">
-          <div className="relative min-w-[160px]">
-            <select
-              value={filterMarcaMoto}
-              onChange={(e) => {
-                setFilterMarcaMoto(e.target.value);
-                setFilterModeloMoto('all'); // Reset modelo when marca changes
+        <div className="flex flex-col sm:flex-row gap-4 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide shrink-0 z-40">
+          <div className="relative min-w-[200px]">
+            <MultiSelect
+              options={config.marcas || []}
+              selected={filterMarcasMoto}
+              onChange={(selected) => {
+                setFilterMarcasMoto(selected);
+                setFilterModelosMoto([]); // Reset models when brands change
               }}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm font-medium appearance-none"
-            >
-              <option value="all">Marcas (Todas)</option>
-              {(config.marcas || []).map(marca => (
-                <option key={marca} value={marca}>{marca}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
+              placeholder="Marcas (Todas)"
+            />
           </div>
 
-          <div className="relative min-w-[160px]">
-            <select
-              value={filterModeloMoto}
-              onChange={(e) => setFilterModeloMoto(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm font-medium appearance-none"
-            >
-              <option value="all">Modelos (Todos)</option>
-              {(config.motos || []).map(moto => (
-                <option key={moto} value={moto}>{moto}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
+          <div className="relative min-w-[200px]">
+            <MultiSelect
+              options={config.motos || []}
+              selected={filterModelosMoto}
+              onChange={setFilterModelosMoto}
+              placeholder="Modelos (Todos)"
+            />
           </div>
 
-          <div className="relative min-w-[160px]">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-            <select
-              value={filterAplicacao}
-              onChange={(e) => setFilterAplicacao(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-10 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm font-medium appearance-none"
-            >
-              <option value="all">Aplicações</option>
-              {aplicacoes.map(app => (
-                <option key={app} value={app}>{app}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
+          <div className="relative min-w-[200px]">
+            <MultiSelect
+              options={aplicacoes}
+              selected={filterAplicacoes}
+              onChange={setFilterAplicacoes}
+              placeholder="Aplicações (Todas)"
+            />
           </div>
 
           <div className="relative min-w-[160px]">

@@ -107,6 +107,8 @@ service cloud.firestore {
              data.aplicacao is string &&
              (!('marcaMoto' in data) || data.marcaMoto is string) &&
              (!('modeloMoto' in data) || data.modeloMoto is string) &&
+             (!('marcasCompativeis' in data) || data.marcasCompativeis is list) &&
+             (!('modelosCompativeis' in data) || data.modelosCompativeis is list) &&
              data.estoque is int && data.estoque >= 0 &&
              (!('fotos' in data) || data.fotos is list) &&
              (!('isArchived' in data) || data.isArchived is bool) &&
@@ -128,7 +130,8 @@ service cloud.firestore {
              (!('whatsappAvisado' in data) || data.whatsappAvisado is bool) &&
              (!('codigoConfirmacao' in data) || data.codigoConfirmacao is string) &&
              (!('observacoes' in data) || data.observacoes is string) &&
-             (!('fotosRecibo' in data) || data.fotosRecibo is list);
+             (!('fotosRecibo' in data) || data.fotosRecibo is list) &&
+             (!('metodoPagamento' in data) || data.metodoPagamento is string);
     }
 
     // Rules

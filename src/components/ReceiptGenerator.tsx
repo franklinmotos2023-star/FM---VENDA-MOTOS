@@ -131,7 +131,7 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
   );
   const diferenciais = saleRecord.diferenciais || {
     dutIncluso: moto.statusDut === 'DUT INCLUSO',
-    garantia3Meses: true,
+    garantia6Meses: true,
     tanqueCheio: false,
     capacete: false,
     revisao: moto.statusRevisao === 'REVISADA'
@@ -385,9 +385,9 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
                 <div className="mt-8 pt-6 border-t border-zinc-200">
                   <span className="block text-[9px] text-zinc-400 uppercase font-bold tracking-wider mb-3">Diferenciais Inclusos</span>
                   <div className="flex flex-wrap gap-2">
-                    {diferenciais.garantia3Meses && (
+                    {diferenciais.garantia6Meses && (
                       <span className="flex items-center gap-1 bg-orange-600/10 text-orange-700 text-[9px] px-2.5 py-1 rounded-full font-black border border-orange-600/20">
-                        <ShieldCheck size={10} /> GARANTIA 3 MESES
+                        <ShieldCheck size={10} /> GARANTIA 6 MESES
                       </span>
                     )}
                     {diferenciais.tanqueCheio && (

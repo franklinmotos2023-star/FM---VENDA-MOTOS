@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Acessorio } from '../types';
-import { Camera, X, Save, ArrowLeft, Wand2, Loader2, Tag, CheckCircle } from 'lucide-react';
+import { Camera, X, Save, ArrowLeft, Wand2, Loader2, Tag, CheckCircle, ChevronDown } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
-import { ChevronDown } from 'lucide-react';
+import MultiSelect from './MultiSelect';
 
 interface AcessorioFormProps {
   acessorio?: Acessorio | null;
@@ -85,7 +85,7 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
 
     try {
       const compressedPhotos = await Promise.all(
-        Array.from(files).map(file => compressImage(file))
+        (Array.from(files) as File[]).map(file => compressImage(file))
       );
 
       setFormData(prev => ({
@@ -238,36 +238,26 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Marca da Moto</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Marcas Compatíveis</label>
             <div className="relative">
-              <select
-                value={formData.marcaMoto || ''}
-                onChange={(e) => setFormData({...formData, marcaMoto: e.target.value, modeloMoto: ''})}
-                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold appearance-none"
-              >
-                <option value="">Selecione uma Marca (Opcional)</option>
-                {(config.marcas || []).map(marca => (
-                  <option key={marca} value={marca}>{marca}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={18} />
+              <MultiSelect
+                options={config.marcas || []}
+                selected={formData.marcasCompativeis || (formData.marcaMoto ? [formData.marcaMoto] : [])}
+                onChange={(selected) => setFormData({...formData, marcasCompativeis: selected, marcaMoto: selected[0] || ''})}
+                placeholder="Selecione Marcas..."
+              />
             </div>
           </div>
           
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Modelo da Moto</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Modelos Compatíveis</label>
             <div className="relative">
-              <select
-                value={formData.modeloMoto || ''}
-                onChange={(e) => setFormData({...formData, modeloMoto: e.target.value})}
-                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white font-bold appearance-none"
-              >
-                <option value="">Selecione um Modelo (Opcional)</option>
-                {(config.motos || []).map(moto => (
-                  <option key={moto} value={moto}>{moto}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={18} />
+              <MultiSelect
+                options={config.motos || []}
+                selected={formData.modelosCompativeis || (formData.modeloMoto ? [formData.modeloMoto] : [])}
+                onChange={(selected) => setFormData({...formData, modelosCompativeis: selected, modeloMoto: selected[0] || ''})}
+                placeholder="Selecione Modelos..."
+              />
             </div>
           </div>
 

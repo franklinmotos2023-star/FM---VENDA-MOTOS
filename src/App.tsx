@@ -48,7 +48,7 @@ const ScooterIcon = ({ size = 24, className = "" }: { size?: number, className?:
 
 export default function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'list' | 'add' | 'edit' | 'finance' | 'acessorios' | 'add_acessorio' | 'edit_acessorio'>('list');
+  const [currentView, setCurrentView] = useState<'welcome' | 'list' | 'add' | 'edit' | 'finance' | 'acessorios' | 'add_acessorio' | 'edit_acessorio'>('welcome');
   const [adminTab, setAdminTab] = useState<'estoque' | 'vendas' | 'taxas' | 'compra'>('estoque');
   const [motos, setMotos] = useState<Moto[]>([]);
   const [acessorios, setAcessorios] = useState<Acessorio[]>([]);
@@ -140,6 +140,10 @@ export default function App() {
         // Strictly only this email is allowed to be admin
         const isDefaultAdmin = firebaseUser.email === 'franklinmotos2023@gmail.com';
         setIsAdmin(isDefaultAdmin);
+
+        if (isDefaultAdmin) {
+          setCurrentView(prev => prev === 'welcome' ? 'list' : prev);
+        }
         
         try {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
@@ -403,12 +407,12 @@ export default function App() {
       {/* Header */}
       <header className="bg-black border-b border-orange-600 shadow-2xl print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex flex-col cursor-pointer shrink-0" onClick={() => { setCurrentView('list'); setAdminTab('estoque'); }}>
+          <div className="flex flex-col cursor-pointer shrink-0" onClick={() => { setCurrentView(isAdmin ? 'list' : 'welcome'); setAdminTab('estoque'); }}>
             <h1 className="text-xl md:text-2xl font-black tracking-tighter uppercase text-white leading-none">
               FM <span className="text-orange-600">- Vendas</span>
             </h1>
             <span className="hidden md:block text-zinc-400 text-[10px] font-bold uppercase tracking-widest mt-1">
-              Especialista em Scooter
+              Catálogo Online
             </span>
           </div>
           <nav className="flex items-center gap-1.5 md:gap-6">
@@ -530,62 +534,66 @@ export default function App() {
               </>
             ) : (
               <>
-                {/* Desktop Tabs */}
-                <div className="hidden md:flex gap-2">
-                  <button
-                    onClick={() => { setCurrentView('list'); setAdminTab('estoque'); }}
-                    className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${
-                      currentView === 'list' 
-                        ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.5)]' 
-                        : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-900'
-                    }`}
-                  >
-                    Motos
-                  </button>
-                  <button
-                    onClick={() => setCurrentView('acessorios')}
-                    className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${
-                      currentView === 'acessorios' 
-                        ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.5)]' 
-                        : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-900'
-                    }`}
-                  >
-                    Acessórios
-                  </button>
-                </div>
-
-                {/* Mobile Tabs Dropdown */}
-                <div className="relative md:hidden">
-                  <button 
-                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="flex items-center gap-1.5 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider"
-                  >
-                    {currentView === 'list' && <><Package size={14} /> Motos</>}
-                    {currentView === 'acessorios' && <><Wrench size={14} /> Acessórios</>}
-                    <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {isMobileMenuOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
+                {currentView !== 'welcome' && (
+                  <>
+                    {/* Desktop Tabs */}
+                    <div className="hidden md:flex gap-2">
                       <button
-                        onClick={() => { setCurrentView('list'); setAdminTab('estoque'); setIsMobileMenuOpen(false); }}
-                        className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
-                          currentView === 'list' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                        onClick={() => { setCurrentView('list'); setAdminTab('estoque'); }}
+                        className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${
+                          currentView === 'list' 
+                            ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.5)]' 
+                            : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-900'
                         }`}
                       >
-                        <Package size={16} /> Motos
+                        Motos
                       </button>
                       <button
-                        onClick={() => { setCurrentView('acessorios'); setIsMobileMenuOpen(false); }}
-                        className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
-                          currentView === 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                        onClick={() => setCurrentView('acessorios')}
+                        className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${
+                          currentView === 'acessorios' 
+                            ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.5)]' 
+                            : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-900'
                         }`}
                       >
-                        <Wrench size={16} /> Acessórios
+                        Acessórios
                       </button>
                     </div>
-                  )}
-                </div>
+
+                    {/* Mobile Tabs Dropdown */}
+                    <div className="relative md:hidden">
+                      <button 
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        className="flex items-center gap-1.5 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider"
+                      >
+                        {currentView === 'list' && <><Package size={14} /> Motos</>}
+                        {currentView === 'acessorios' && <><Wrench size={14} /> Acessórios</>}
+                        <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {isMobileMenuOpen && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
+                          <button
+                            onClick={() => { setCurrentView('list'); setAdminTab('estoque'); setIsMobileMenuOpen(false); }}
+                            className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
+                              currentView === 'list' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                            }`}
+                          >
+                            <Package size={16} /> Motos
+                          </button>
+                          <button
+                            onClick={() => { setCurrentView('acessorios'); setIsMobileMenuOpen(false); }}
+                            className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
+                              currentView === 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                            }`}
+                          >
+                            <Wrench size={16} /> Acessórios
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
             
@@ -636,6 +644,50 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 print:p-0 print:max-w-none">
+        
+        {currentView === 'welcome' && (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div className="text-center space-y-8 max-w-2xl w-full px-4">
+              <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-orange-700 rounded-3xl mx-auto shadow-2xl flex items-center justify-center border-4 border-zinc-900 shadow-orange-600/20">
+                <ScooterIcon size={48} className="text-black" />
+              </div>
+
+              <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tight">
+                FM <span className="text-orange-600">- VENDAS</span>
+              </h2>
+              
+              <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 shadow-2xl">
+                <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider mb-2">Bem-vindo ao nosso catálogo online!</h3>
+                <p className="text-sm md:text-base font-bold text-zinc-400 uppercase tracking-widest leading-relaxed mb-8">
+                  Qual promoção você gostaria de aproveitar?
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    onClick={() => setCurrentView('list')}
+                    className="flex-1 p-8 bg-zinc-900 border border-zinc-800 hover:border-orange-500 rounded-2xl group transition-all duration-300 shadow-lg hover:shadow-orange-600/10 flex flex-col items-center justify-center gap-6"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-orange-500 group-hover:bg-orange-600/10 transition-colors">
+                      <Package size={40} />
+                    </div>
+                    <span className="font-extrabold text-white tracking-widest uppercase md:text-lg">MOTOS</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentView('acessorios')}
+                    className="flex-1 p-8 bg-zinc-900 border border-zinc-800 hover:border-orange-500 rounded-2xl group transition-all duration-300 shadow-lg hover:shadow-orange-600/10 flex flex-col items-center justify-center gap-6"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-orange-500 group-hover:bg-orange-600/10 transition-colors">
+                      <Wrench size={40} />
+                    </div>
+                    <span className="font-extrabold text-white tracking-widest uppercase md:text-lg">PEÇAS / ACESSÓRIOS</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {currentView === 'acessorios' && (
           <AcessorioList
             acessorios={acessorios}

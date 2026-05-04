@@ -71,6 +71,14 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
     setBuyerData({ ...buyerData, telefone: value });
   };
 
+  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 8) value = value.slice(0, 8);
+    value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+    value = value.replace(/\.(\d{3})(\d)/, '.$1-$2');
+    setBuyerData({ ...buyerData, cep: value });
+  };
+
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentMethod) {
@@ -250,7 +258,7 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">CEP</label>
-                  <input type="text" value={buyerData.cep} onChange={e => setBuyerData({...buyerData, cep: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="00000-000" />
+                  <input type="text" value={buyerData.cep} onChange={handleCepChange} maxLength={10} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="00.000-000" />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Endereço</label>

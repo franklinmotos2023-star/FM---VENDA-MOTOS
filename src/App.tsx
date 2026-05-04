@@ -668,7 +668,7 @@ export default function App() {
                     className="flex-1 p-8 bg-zinc-900 border border-zinc-800 hover:border-orange-500 rounded-2xl group transition-all duration-300 shadow-lg hover:shadow-orange-600/10 flex flex-col items-center justify-center gap-6"
                   >
                     <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-orange-500 group-hover:bg-orange-600/10 transition-colors">
-                      <Package size={40} />
+                      <Bike size={40} />
                     </div>
                     <span className="font-extrabold text-white tracking-widest uppercase md:text-lg">MOTOS</span>
                   </button>

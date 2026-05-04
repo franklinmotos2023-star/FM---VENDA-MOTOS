@@ -291,7 +291,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
           />
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide shrink-0 z-40">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 pb-2 sm:pb-0 shrink-0 z-40">
           <div className="relative min-w-[200px]">
             <MultiSelect
               options={config.marcas || []}

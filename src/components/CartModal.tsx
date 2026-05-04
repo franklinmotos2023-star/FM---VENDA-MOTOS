@@ -48,6 +48,29 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    setBuyerData({ ...buyerData, cpf: value });
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length > 2) {
+      value = value.replace(/^(\d{2})(\d)/g, '($1) $2');
+    }
+    if (value.length > 9) {
+      value = value.replace(/(\d{5})(\d)/, '$1-$2');
+    } else if (value.length > 8) {
+      value = value.replace(/(\d{4})(\d)/, '$1-$2');
+    }
+    setBuyerData({ ...buyerData, telefone: value });
+  };
+
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentMethod) {
@@ -164,8 +187,8 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
               {step === 'cart' ? 'Seu Carrinho' : 'Finalizar Pedido'}
             </h2>
           </div>
-          <button onClick={handleClose} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-full transition-colors">
-            <X size={20} />
+          <button onClick={handleClose} className="text-[10px] font-bold text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-800 px-3 py-2 rounded-lg transition-colors uppercase tracking-wider">
+            Continuar Comprando
           </button>
         </div>
 
@@ -218,11 +241,11 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
               </div>
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">CPF</label>
-                <input type="text" required value={buyerData.cpf} onChange={e => setBuyerData({...buyerData, cpf: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="000.000.000-00" />
+                <input type="text" required value={buyerData.cpf} onChange={handleCpfChange} maxLength={14} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="000.000.000-00" />
               </div>
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Telefone / WhatsApp</label>
-                <input type="text" required value={buyerData.telefone} onChange={e => setBuyerData({...buyerData, telefone: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="(00) 00000-0000" />
+                <input type="text" required value={buyerData.telefone} onChange={handlePhoneChange} maxLength={15} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="(00) 00000-0000" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -287,7 +310,7 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
                   onClick={() => setStep('checkout')}
                   className="w-full py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-all uppercase tracking-wider text-sm shadow-[0_0_20px_rgba(234,88,12,0.3)]"
                 >
-                  Continuar para Dados
+                  Finalizar Pedido
                 </button>
               </>
             ) : (

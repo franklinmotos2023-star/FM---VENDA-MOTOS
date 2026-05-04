@@ -11,7 +11,7 @@ import UserProfileModal from './components/UserProfileModal';
 import AcessorioList from './components/AcessorioList';
 import AcessorioForm from './components/AcessorioForm';
 import CartModal from './components/CartModal';
-import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench } from 'lucide-react';
+import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench, MessageCircle } from 'lucide-react';
 import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, deleteDoc, updateDoc, increment, handleFirestoreError, OperationType } from './firebase';
 
 const ScooterIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -756,6 +756,19 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Floating Action Button (WhatsApp / Contato) */}
+      <a
+        href="https://wa.me/558532332200?text=Olá, gostaria de tirar uma dúvida sobre o catálogo online."
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-40 bg-[#25D366] text-white p-4 rounded-full shadow-[0_0_20px_rgba(37,211,102,0.4)] hover:scale-110 transition-transform flex items-center justify-center print:hidden group"
+      >
+        <MessageCircle size={28} />
+        <span className="absolute right-full mr-4 max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap bg-zinc-900 border border-zinc-800 px-0 py-2 rounded-xl text-xs font-bold text-white group-hover:px-4">
+          Tira Dúvidas / Contato
+        </span>
+      </a>
 
       {/* Cart Modal */}
       {isCartOpen && (

@@ -10,19 +10,26 @@ interface MultiSelectProps {
 
 export default function MultiSelect({ options, selected, onChange, placeholder }: MultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setSearchTerm('');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
-  const toggleOption = (opt: string) => {
+  const toggleOption = (e: React.MouseEvent | React.TouchEvent, opt: string) => {
+    e.stopPropagation();
     if (selected.includes(opt)) {
       onChange(selected.filter(s => s !== opt));
     } else {
@@ -36,6 +43,10 @@ export default function MultiSelect({ options, selected, onChange, placeholder }
       ? selected[0] 
       : `${selected.length} selecionados`;
 
+  const filteredOptions = options.filter(opt => 
+    opt.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="relative w-full" ref={ref}>
       <div 
@@ -47,14 +58,24 @@ export default function MultiSelect({ options, selected, onChange, placeholder }
       </div>
       
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full max-h-60 overflow-y-auto bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl p-2 scrollbar-thin scrollbar-thumb-zinc-700">
+        <div className="absolute z-50 mt-2 w-full max-h-72 overflow-y-auto bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl p-2 scrollbar-thin scrollbar-thumb-zinc-700 flex flex-col">
+          <div className="sticky top-0 bg-zinc-900 pb-2 z-10">
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-orange-500"
+            />
+          </div>
           <div className="space-y-1">
-            {options.map(opt => {
+            {filteredOptions.map(opt => {
               const isSelected = selected.includes(opt);
               return (
                 <div
                   key={opt}
-                  onClick={() => toggleOption(opt)}
+                  onClick={(e) => toggleOption(e, opt)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                     isSelected ? 'bg-orange-600/20 text-orange-500' : 'text-zinc-300 hover:bg-zinc-800'
                   }`}
@@ -66,8 +87,8 @@ export default function MultiSelect({ options, selected, onChange, placeholder }
                 </div>
               );
             })}
-            {options.length === 0 && (
-              <div className="text-zinc-500 text-xs p-2 text-center">Vazio</div>
+            {filteredOptions.length === 0 && (
+              <div className="text-zinc-500 text-xs p-2 text-center">Busca sem resultados</div>
             )}
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CartItem, AcessorioSaleRecord } from '../types';
 import { ShoppingCart, X, Plus, Minus, Trash2, CheckCircle2, MessageCircle, Info, CreditCard, Banknote } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
@@ -150,6 +150,8 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
     return `https://wa.me/${targetNumber}?text=${message}`;
   };
 
+  const checkoutFormRef = useRef<HTMLFormElement>(null);
+
   if (step === 'success') {
     return (
       <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -242,23 +244,23 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
               </div>
             )
           ) : (
-            <form id="checkout-form" onSubmit={handleCheckoutSubmit} className="space-y-4">
+            <form id="checkout-form" ref={checkoutFormRef} onSubmit={handleCheckoutSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Nome Completo</label>
                 <input type="text" required value={buyerData.nome} onChange={e => setBuyerData({...buyerData, nome: e.target.value})} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="Seu nome" />
               </div>
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">CPF</label>
-                <input type="text" required value={buyerData.cpf} onChange={handleCpfChange} maxLength={14} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="000.000.000-00" />
+                <input type="text" inputMode="numeric" required value={buyerData.cpf} onChange={handleCpfChange} maxLength={14} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="000.000.000-00" />
               </div>
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Telefone / WhatsApp</label>
-                <input type="text" required value={buyerData.telefone} onChange={handlePhoneChange} maxLength={15} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="(00) 00000-0000" />
+                <input type="text" inputMode="numeric" required value={buyerData.telefone} onChange={handlePhoneChange} maxLength={15} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="(00) 00000-0000" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">CEP</label>
-                  <input type="text" value={buyerData.cep} onChange={handleCepChange} maxLength={10} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="00.000-000" />
+                  <input type="text" inputMode="numeric" value={buyerData.cep} onChange={handleCepChange} maxLength={10} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 outline-none text-white text-sm" placeholder="00.000-000" />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Endereço</label>
@@ -348,8 +350,16 @@ export default function CartModal({ cart, onClose, onUpdateQuantity, onRemoveIte
                     Voltar
                   </button>
                   <button
-                    type="submit"
-                    form="checkout-form"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (checkoutFormRef.current) {
+                        if (checkoutFormRef.current.reportValidity()) {
+                          const mockEvent = { preventDefault: () => {} } as React.FormEvent;
+                          handleCheckoutSubmit(mockEvent);
+                        }
+                      }
+                    }}
                     disabled={isSubmitting || !paymentMethod}
                     className="flex-1 py-4 bg-orange-600 text-black rounded-xl font-black hover:bg-orange-500 transition-all uppercase tracking-wider text-sm shadow-[0_0_20px_rgba(234,88,12,0.3)] disabled:opacity-50"
                   >

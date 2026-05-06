@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Moto } from '../types';
-import { Plus, Calculator, Edit2, Trash2, Calendar, Gauge, Settings, Fuel, Info, CheckCircle2, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Calculator, Edit2, Trash2, Calendar, Gauge, Settings, Fuel, Info, CheckCircle2, X, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface MotoListProps {
@@ -168,6 +168,21 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
             <Calculator size={18} />
             {isAdmin ? 'Vender / Simular' : 'Simule sua Proposta'}
           </button>
+
+          {!isAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const formatCur = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+                const message = `Olá, tenho interesse na moto ${moto.marcaModelo} (ano ${moto.anoModelo}), anunciada por ${formatCur(moto.precoAVista)}. Gostaria de saber mais informações.`;
+                window.open(`https://wa.me/558532332200?text=${encodeURIComponent(message)}`, '_blank');
+              }}
+              className="w-full mt-3 flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white py-3 md:py-4 rounded-xl font-black transition-colors uppercase tracking-wider text-xs md:text-sm shadow-[0_0_15px_rgba(37,211,102,0.3)]"
+            >
+              <MessageCircle size={18} />
+              Tenho Interesse
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -389,26 +404,41 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
                   )}
                 </div>
 
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => {
-                      onFinance(selectedMoto);
-                      setSelectedMoto(null);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-3 bg-orange-600 hover:bg-orange-500 text-black py-5 rounded-2xl font-black transition-all uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(234,88,12,0.3)]"
-                  >
-                    <Calculator size={24} />
-                    {isAdmin ? 'Vender / Simular' : 'Simule sua Proposta'}
-                  </button>
-                  {isAdmin && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-4">
                     <button
                       onClick={() => {
-                        onEditMoto?.(selectedMoto);
+                        onFinance(selectedMoto);
                         setSelectedMoto(null);
                       }}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-white p-5 rounded-2xl transition-colors border border-zinc-700"
+                      className="flex-1 flex items-center justify-center gap-3 bg-orange-600 hover:bg-orange-500 text-black py-5 rounded-2xl font-black transition-all uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(234,88,12,0.3)]"
                     >
-                      <Edit2 size={24} />
+                      <Calculator size={24} />
+                      {isAdmin ? 'Vender / Simular' : 'Simule sua Proposta'}
+                    </button>
+                     {isAdmin && (
+                      <button
+                        onClick={() => {
+                          onEditMoto?.(selectedMoto);
+                          setSelectedMoto(null);
+                        }}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white p-5 rounded-2xl transition-colors border border-zinc-700"
+                      >
+                        <Edit2 size={24} />
+                      </button>
+                    )}
+                  </div>
+
+                  {!isAdmin && (
+                    <button
+                      onClick={() => {
+                        const message = `Olá, tenho interesse na moto ${selectedMoto.marcaModelo} (ano ${selectedMoto.anoModelo}), anunciada por ${formatCurrency(selectedMoto.precoAVista)}. Gostaria de saber mais informações.`;
+                        window.open(`https://wa.me/558532332200?text=${encodeURIComponent(message)}`, '_blank');
+                      }}
+                      className="w-full flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#20BD5A] text-white py-4 rounded-2xl font-black transition-all uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(37,211,102,0.3)]"
+                    >
+                      <MessageCircle size={24} />
+                      Tenho Interesse
                     </button>
                   )}
                 </div>

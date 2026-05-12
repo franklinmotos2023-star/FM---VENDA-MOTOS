@@ -52,7 +52,8 @@ service cloud.firestore {
              (!('descricao' in data) || data.descricao is string) &&
              (!('equipamentos' in data) || data.equipamentos is list) &&
              (!('planos' in data) || data.planos is list) &&
-             (!('fotos' in data) || data.fotos is list);
+             (!('fotos' in data) || data.fotos is list) &&
+             (!('documentos' in data) || data.documentos is list);
     }
 
     function isValidSale(data) {
@@ -86,13 +87,18 @@ service cloud.firestore {
       return data.keys().hasAll(['motoInfo', 'vendedorNome', 'vendedorCpfCnpj', 'valorTotal', 'entrada', 'valorFinanciado', 'dataCompra']) &&
              data.motoInfo is map &&
              data.vendedorNome is string && data.vendedorNome.size() > 0 &&
-             data.vendedorCpfCnpj is string && data.vendedorCpfCnpj.size() > 0 &&
+             data.vendedorCpfCnpj is string &&
              data.valorTotal is number && data.valorTotal >= 0 &&
              data.entrada is number && data.entrada >= 0 &&
              data.valorFinanciado is number && data.valorFinanciado >= 0 &&
              data.dataCompra is string &&
+             (!('vendedorTelefone' in data) || data.vendedorTelefone is string) &&
+             (!('vendedorEndereco' in data) || data.vendedorEndereco is string) &&
              (!('parcelas' in data) || data.parcelas is list) &&
              (!('fotos' in data) || data.fotos is list) &&
+             (!('documentos' in data) || data.documentos is list) &&
+             (!('custos' in data) || data.custos is list) &&
+             (!('isPublished' in data) || data.isPublished is bool) &&
              (!('observacoes' in data) || data.observacoes is string) &&
              (!('status' in data) || data.status in ['em_estoque', 'vendida', 'cancelada']);
     }
@@ -111,6 +117,7 @@ service cloud.firestore {
              (!('modelosCompativeis' in data) || data.modelosCompativeis is list) &&
              data.estoque is int && data.estoque >= 0 &&
              (!('fotos' in data) || data.fotos is list) &&
+             (!('documentos' in data) || data.documentos is list) &&
              (!('isArchived' in data) || data.isArchived is bool) &&
              (!('categoria' in data) || data.categoria is string) &&
              (!('tags' in data) || data.tags is list);

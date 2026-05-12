@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, db, handleFirestoreError, OperationType, getDocs } from '../firebase';
-import { PurchaseRecord, PurchaseInstallment } from '../types';
+import { PurchaseRecord, PurchaseInstallment, CustoPurchase } from '../types';
 import { Plus, Search, Filter, Calendar, User, Phone, DollarSign, FileText, Trash2, Eye, Camera, X, CheckCircle2, Clock, Bike, MapPin, CreditCard, Info, Scan } from 'lucide-react';
 import PurchaseReceiptGenerator from './PurchaseReceiptGenerator';
 import { motion, AnimatePresence } from 'motion/react';

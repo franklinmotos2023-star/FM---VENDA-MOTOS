@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Moto } from '../types';
 import { Plus, Calculator, Edit2, Trash2, Calendar, Gauge, Settings, Fuel, Info, CheckCircle2, X, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -190,8 +191,25 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
 }
 
 export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditMoto, onDeleteMoto }: MotoListProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [selectedMoto, setSelectedMoto] = useState<Moto | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    if (location.pathname.match(/^\/motos\/[^/]+$/)) {
+      const id = location.pathname.split('/').pop();
+      if (motos.length > 0) {
+        const m = motos.find(mt => mt.id === id);
+        if (m && (!selectedMoto || selectedMoto.id !== id)) {
+          setSelectedMoto(m);
+          setCurrentImageIndex(0);
+        }
+      }
+    } else {
+      setSelectedMoto(null);
+    }
+  }, [location.pathname, motos]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -236,8 +254,7 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
             onDeleteMoto={onDeleteMoto}
             onFinance={onFinance}
             onSelect={(m) => {
-              setSelectedMoto(m);
-              setCurrentImageIndex(0);
+              navigate(`/motos/${m.id}`);
             }}
           />
         ))}
@@ -251,7 +268,7 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedMoto(null)}
+              onClick={() => navigate('/motos')}
               className="absolute inset-0 bg-black/90 backdrop-blur-sm"
             />
             
@@ -262,7 +279,7 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
               className="relative w-full max-w-6xl max-h-[90vh] bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden border border-zinc-800 flex flex-col md:flex-row"
             >
               <button
-                onClick={() => setSelectedMoto(null)}
+                onClick={() => navigate('/motos')}
                 className="absolute top-4 right-4 z-20 bg-black/60 text-white p-2 rounded-full hover:bg-orange-600 transition-colors"
               >
                 <X size={24} />

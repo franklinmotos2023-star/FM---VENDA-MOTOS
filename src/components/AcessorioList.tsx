@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Acessorio } from '../types';
 import { Plus, Edit, Trash2, Tag, ChevronLeft, ChevronRight, PackageOpen, ShoppingCart, Search, Filter, ArrowUpDown, ChevronDown, Archive, ArchiveRestore, X } from 'lucide-react';
 import AcessorioConfigManager from './AcessorioConfigManager';
@@ -18,6 +19,8 @@ interface AcessorioListProps {
 }
 
 export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDelete, onAddToCart, onToggleArchive, onAddStock }: AcessorioListProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const config = useAcessoriosConfig();
   
   const [currentImageIndices, setCurrentImageIndices] = useState<Record<string, number>>({});
@@ -25,6 +28,20 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
   const [acessorioToAddStock, setAcessorioToAddStock] = useState<Acessorio | null>(null);
   const [acessorioDetails, setAcessorioDetails] = useState<Acessorio | null>(null);
   const [stockToAdd, setStockToAdd] = useState<string>('');
+
+  useEffect(() => {
+    if (location.pathname.match(/^\/acessorios\/[^/]+$/)) {
+      const id = location.pathname.split('/').pop();
+      if (acessorios.length > 0) {
+        const a = acessorios.find(ac => ac.id === id);
+        if (a && (!acessorioDetails || acessorioDetails.id !== id)) {
+          setAcessorioDetails(a);
+        }
+      }
+    } else {
+      setAcessorioDetails(null);
+    }
+  }, [location.pathname, acessorios]);
   
   // Filters and Sorting State
   const [searchTerm, setSearchTerm] = useState('');
@@ -346,7 +363,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             <div 
               key={acessorio.id} 
               className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800 hover:border-orange-500/50 transition-all group flex flex-col h-full cursor-pointer"
-              onClick={() => setAcessorioDetails(acessorio)}
+              onClick={() => navigate(`/acessorios/${acessorio.id}`)}
             >
               {/* Image Gallery */}
               <div className="relative aspect-square bg-zinc-950 overflow-hidden">
@@ -560,7 +577,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] shadow-2xl animate-in zoom-in duration-200 flex flex-col md:flex-row overflow-hidden relative">
             <button 
-              onClick={() => setAcessorioDetails(null)}
+              onClick={() => navigate('/acessorios')}
               className="absolute top-4 right-4 z-20 p-2 bg-black/50 hover:bg-red-500 text-white rounded-full backdrop-blur-sm transition-colors"
             >
               <X size={20} />

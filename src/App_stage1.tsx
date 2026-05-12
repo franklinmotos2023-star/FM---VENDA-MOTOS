@@ -50,11 +50,9 @@ const ScooterIcon = ({ size = 24, className = "" }: { size?: number, className?:
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const pathname = location.pathname;
 
   const [isAppLoading, setIsAppLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'welcome' | 'list' | 'add' | 'edit' | 'finance' | 'acessorios' | 'add_acessorio' | 'edit_acessorio'>('welcome');
-  const [adminTab, setAdminTab] = useState<'estoque' | 'vendas' | 'taxas' | 'compra'>('estoque');
+    const [adminTab, setAdminTab] = useState<'estoque' | 'vendas' | 'taxas' | 'compra'>('estoque');
   const [motos, setMotos] = useState<Moto[]>([]);
   const [acessorios, setAcessorios] = useState<Acessorio[]>([]);
   const [selectedMoto, setSelectedMoto] = useState<Moto | null>(null);
@@ -68,59 +66,6 @@ export default function App() {
   const [userData, setUserData] = useState<any>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-
-  useEffect(() => {
-    let newView = currentView;
-    if (pathname === '/') newView = 'welcome';
-    else if (pathname === '/motos') newView = 'list';
-    else if (pathname.startsWith('/motos/adicionar')) newView = 'add';
-    else if (pathname.startsWith('/motos/simular/')) {
-       newView = 'finance';
-       const id = pathname.split('/').pop();
-       if (motos.length > 0) {
-         const m = motos.find(m => m.id === id);
-         if (m && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
-       }
-    }
-    else if (pathname.includes('/editar') && pathname.startsWith('/motos')) {
-       newView = 'edit';
-       const id = pathname.split('/').slice(-2, -1)[0]; // /motos/id/editar
-       if (motos.length > 0) {
-         const m = motos.find(m => m.id === id);
-         if (m && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
-       }
-    }
-    else if (pathname.match(/^\/motos\/[^/]+$/)) {
-       newView = 'list';
-       const id = pathname.split('/').pop();
-       if (motos.length > 0) {
-         const m = motos.find(m => m.id === id);
-         if (m && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
-       }
-    }
-    else if (pathname === '/acessorios') newView = 'acessorios';
-    else if (pathname.startsWith('/acessorios/adicionar')) newView = 'add_acessorio';
-    else if (pathname.includes('/editar') && pathname.startsWith('/acessorios')) {
-       newView = 'edit_acessorio';
-       const id = pathname.split('/').slice(-2, -1)[0];
-       if (acessorios.length > 0) {
-         const a = acessorios.find(a => a.id === id);
-         if (a && (!selectedAcessorio || selectedAcessorio.id !== id)) setSelectedAcessorio(a);
-       }
-    }
-    else if (pathname.match(/^\/acessorios\/[^/]+$/)) {
-       newView = 'acessorios';
-       const id = pathname.split('/').pop();
-       if (acessorios.length > 0) {
-         const a = acessorios.find(a => a.id === id);
-         if (a && (!selectedAcessorio || selectedAcessorio.id !== id)) setSelectedAcessorio(a);
-       }
-    }
-
-    if (newView !== currentView) {
-      setCurrentView(newView);
-    }
-  }, [pathname, motos, acessorios]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -200,7 +145,7 @@ export default function App() {
         setIsAdmin(isDefaultAdmin);
 
         if (isDefaultAdmin) {
-          setCurrentView(prev => prev === 'welcome' ? 'list' : prev);
+          if (location.pathname === '/') navigate('/motos');
         }
         
         try {
@@ -292,11 +237,13 @@ export default function App() {
   };
 
   const handleAddMoto = () => {
+    setSelectedMoto(null);
     navigate('/motos/adicionar');
   };
 
   const handleEditMoto = (moto: Moto) => {
-    navigate(`/motos/${moto.id}/editar`);
+    setSelectedMoto(moto);
+    navigate(`/motos/${selectedMoto?.id}/editar`);
   };
 
   const handleDeleteMoto = (id: string) => {
@@ -320,7 +267,6 @@ export default function App() {
       } else {
         await setDoc(doc(collection(db, 'motos')), motoData);
       }
-      navigate('/motos');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'motos');
     }
@@ -334,6 +280,7 @@ export default function App() {
         await setDoc(doc(collection(db, 'acessorios')), acessorioData);
       }
       navigate('/acessorios');
+      setSelectedAcessorio(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'acessorios');
     }
@@ -369,10 +316,12 @@ export default function App() {
 
   const handleCancelAdd = () => {
     navigate('/motos');
+    setSelectedMoto(null);
   };
 
   const handleFinance = (moto: Moto) => {
-    navigate(`/motos/simular/${moto.id}`);
+    setSelectedMoto(moto);
+    navigate(`/motos/${selectedMoto?.id}/simular`);
   };
 
   const handleConfirmFinance = () => {
@@ -382,6 +331,7 @@ export default function App() {
 
   const handleCompleteSale = () => {
     navigate('/motos');
+    setSelectedMoto(null);
   };
 
   const handleAddToCart = (acessorio: Acessorio) => {
@@ -717,7 +667,7 @@ export default function App() {
 
                 <div className="flex flex-col sm:flex-row gap-4">
                   <button
-                    onClick={() => navigate('/motos')}
+                    onClick={() => setCurrentView('list')}
                     className="flex-1 p-8 bg-zinc-900 border border-zinc-800 hover:border-orange-500 rounded-2xl group transition-all duration-300 shadow-lg hover:shadow-orange-600/10 flex flex-col items-center justify-center gap-6"
                   >
                     <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-orange-500 group-hover:bg-orange-600/10 transition-colors">
@@ -745,10 +695,10 @@ export default function App() {
           <AcessorioList
             acessorios={acessorios}
             isAdmin={isAdmin}
-            onAdd={() => setCurrentView('add_acessorio')}
+            onAdd={() => navigate('/acessorios/adicionar')}
             onEdit={(acessorio) => {
               setSelectedAcessorio(acessorio);
-              setCurrentView('edit_acessorio');
+              navigate(`/acessorios/${selectedAcessorio?.id}/editar`);
             }}
             onDelete={handleDeleteAcessorio}
             onAddToCart={handleAddToCart}
@@ -762,7 +712,7 @@ export default function App() {
             acessorio={selectedAcessorio}
             onSave={handleSaveAcessorio}
             onCancel={() => {
-              setCurrentView('acessorios');
+              navigate('/acessorios');
               setSelectedAcessorio(null);
             }}
           />
@@ -803,7 +753,7 @@ export default function App() {
           <FinanceCalculator
             moto={selectedMoto}
             onConfirm={handleConfirmFinance}
-            onCancel={() => navigate('/motos')}
+            onCancel={() => setCurrentView('list')}
             isAdmin={isAdmin}
             userData={userData}
           />

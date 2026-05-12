@@ -93,6 +93,7 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
     statusRevisao: initialData?.statusRevisao || 'REVISADA',
     statusDut: initialData?.statusDut || 'DUT INCLUSO',
     fotos: initialData?.fotos || [],
+    documentos: initialData?.documentos || [],
     cambio: initialData?.cambio || 'MANUAL',
     combustivel: initialData?.combustivel || 'FLEX',
     descricao: initialData?.descricao || '',
@@ -296,10 +297,10 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
     });
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isDocument: boolean = false) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      if ((formData.fotos?.length || 0) + files.length > 4) {
+      if (!isDocument && (formData.fotos?.length || 0) + files.length > 4) {
         alert("Você pode adicionar no máximo 4 fotos por moto.");
         return;
       }
@@ -310,16 +311,13 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
 
       setFormData(prev => ({
         ...prev,
-        fotos: [...(prev.fotos || []), ...compressedImages]
+        [isDocument ? 'documentos' : 'fotos']: [...(prev[isDocument ? 'documentos' : 'fotos'] || []), ...compressedImages]
       }));
     }
   };
 
-  const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      fotos: prev.fotos?.filter((_, i) => i !== index)
-    }));
+  const removeImage = (index: number, isDocument: boolean = false) => {
+    setFormData(prev => ({ ...prev, [isDocument ? 'documentos' : 'fotos']: prev[isDocument ? 'documentos' : 'fotos']?.filter((_, i) => i !== index) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -614,7 +612,7 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
                     key={foto}
                     foto={foto}
                     index={index}
-                    onRemove={removeImage}
+                    onRemove={(i) => removeImage(i, false)}
                   />
                 ))}
               </SortableContext>
@@ -622,12 +620,12 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
               {!isEnhancing && (
                 <label className="aspect-square rounded-xl border-2 border-dashed border-zinc-700 flex flex-col items-center justify-center text-zinc-500 hover:text-orange-500 hover:border-orange-500 transition-colors cursor-pointer bg-zinc-950/50">
                   <Camera size={32} className="mb-2" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Adicionar Foto</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-center px-2">Adicionar Foto da Moto</span>
                   <input
                     type="file"
                     multiple
                     accept="image/*"
-                    onChange={handleImageUpload}
+                    onChange={(e) => handleImageUpload(e, false)}
                     className="hidden"
                   />
                 </label>
@@ -645,8 +643,37 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
           )}
           
           <p className="text-[10px] text-zinc-500 font-medium italic">
-            * Arraste as fotos para reordenar. A primeira foto será a capa.
+            * Arraste as fotos da moto para reordenar. A primeira foto será a capa.
           </p>
+        </div>
+
+        <div className="space-y-4 pt-6 border-t border-zinc-800">
+          <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Documentos Anexos (Somente Internos)</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {formData.documentos?.map((docImg, index) => (
+              <div key={index} className="aspect-square relative rounded-xl overflow-hidden border border-zinc-700 group bg-zinc-950">
+                <img src={docImg} alt={`Documento ${index + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(index, true)}
+                  className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+            <label className="aspect-square rounded-xl border-2 border-dashed border-zinc-700 flex flex-col items-center justify-center text-zinc-500 hover:text-orange-500 hover:border-orange-500 transition-colors cursor-pointer bg-zinc-950/50">
+              <Camera size={32} className="mb-2" />
+              <span className="text-xs font-bold uppercase tracking-wider text-center px-2">Anexar Documento</span>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => handleImageUpload(e, true)}
+                className="hidden"
+              />
+            </label>
+          </div>
         </div>
 
         <div className="flex justify-end gap-4 pt-8 mt-8 border-t border-zinc-800">

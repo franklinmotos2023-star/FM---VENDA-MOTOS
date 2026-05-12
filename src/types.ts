@@ -15,6 +15,7 @@ export type Moto = {
   statusRevisao: string;
   statusDut: string;
   fotos: string[];
+  documentos?: string[];
   cambio?: string;
   combustivel?: string;
   descricao?: string;
@@ -121,6 +122,15 @@ export type PurchaseInstallment = {
   status: 'pendente' | 'pago';
 };
 
+export type CustoPurchase = {
+  id: string;
+  descricao: string;
+  valor: number;
+  observacao?: string;
+  pdfUrl?: string;
+  data: string;
+};
+
 export type PurchaseRecord = {
   id?: string;
   motoInfo: {
@@ -145,7 +155,9 @@ export type PurchaseRecord = {
   
   dataCompra: string;
   fotos: string[];
+  documentos?: string[];
   observacoes?: string;
+  custos?: CustoPurchase[];
   status: 'em_estoque' | 'vendida' | 'cancelada';
   isPublished?: boolean;
 };
@@ -158,6 +170,7 @@ export type Acessorio = {
   precoPromocional?: number;
   emPromocao: boolean;
   fotos: string[];
+  documentos?: string[];
   aplicacao: string; // Legacy: Motos compatíveis text
   marcaMoto?: string; // Legacy
   modeloMoto?: string; // Legacy

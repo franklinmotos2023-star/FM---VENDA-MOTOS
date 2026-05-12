@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, db, handleFirestoreError, OperationType } from '../firebase';
+import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, db, handleFirestoreError, OperationType, getDocs } from '../firebase';
 import { PurchaseRecord, PurchaseInstallment } from '../types';
 import { Plus, Search, Filter, Calendar, User, Phone, DollarSign, FileText, Trash2, Eye, Camera, X, CheckCircle2, Clock, Bike, MapPin, CreditCard, Info, Scan } from 'lucide-react';
 import PurchaseReceiptGenerator from './PurchaseReceiptGenerator';
@@ -26,6 +26,9 @@ export default function AdminPurchases() {
   const [scannerImage, setScannerImage] = useState<string | null>(null);
   const [scannedData, setScannedData] = useState<any>(null);
   const [showScannerModal, setShowScannerModal] = useState(false);
+  
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'compra'|'custos'>('compra');
 
   // Form State
   const [formData, setFormData] = useState<Omit<PurchaseRecord, 'id'>>({
@@ -49,6 +52,8 @@ export default function AdminPurchases() {
     parcelas: [],
     dataCompra: new Date().toISOString().split('T')[0],
     fotos: [],
+    documentos: [],
+    custos: [],
     observacoes: '',
     status: 'em_estoque'
   });
@@ -58,17 +63,67 @@ export default function AdminPurchases() {
   const [dataPrimeiraParcela, setDataPrimeiraParcela] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
-    const q = query(collection(db, 'purchases'), orderBy('dataCompra', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const purchasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseRecord));
-      setPurchases(purchasesData);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'purchases');
-      setLoading(false);
-    });
+    let unsubscribePurchases: () => void;
 
-    return () => unsubscribe();
+    const setupListeners = async () => {
+      const q = query(collection(db, 'purchases'), orderBy('dataCompra', 'desc'));
+      unsubscribePurchases = onSnapshot(q, async (snapshot) => {
+        const purchasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseRecord));
+        setPurchases(purchasesData);
+        setLoading(false);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'purchases');
+        setLoading(false);
+      });
+      
+      // Sync motos to purchases only once on mount
+      try {
+        const motosSnapshot = await getDocs(collection(db, 'motos'));
+        const motosData = motosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        const currentPurchases = await getDocs(collection(db, 'purchases'));
+        const currentPurchasesData = currentPurchases.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseRecord));
+        
+        for (const moto of motosData) {
+          const exists = currentPurchasesData.some((p: PurchaseRecord) => p.motoInfo.placa === moto.placa);
+          if (!exists) {
+            const purchaseData: Omit<PurchaseRecord, 'id'> = {
+              motoInfo: {
+                marcaModelo: moto.marcaModelo || '',
+                placa: moto.placa || '',
+                anoFabricacao: parseInt(moto.anoFabricacao) || new Date().getFullYear(),
+                anoModelo: parseInt(moto.anoModelo) || new Date().getFullYear(),
+                quilometragem: moto.quilometragem || '',
+                cor: moto.cor || '',
+                chassi: moto.chassi || '',
+                renavam: moto.renavam || ''
+              },
+              vendedorNome: 'Cadastro Sistema Anterior',
+              vendedorCpfCnpj: '',
+              vendedorTelefone: '',
+              valorTotal: (moto.precoAVista || 0) * 0.8,
+              entrada: 0,
+              valorFinanciado: 0,
+              parcelas: [],
+              dataCompra: moto.dataEntrada ? new Date(moto.dataEntrada).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              fotos: moto.fotos || [],
+              documentos: moto.documentos || [],
+              status: 'em_estoque',
+              isPublished: true,
+              observacoes: 'Importado de moto existente no estoque.'
+            };
+            await addDoc(collection(db, 'purchases'), purchaseData);
+          }
+        }
+      } catch (err) {
+        console.error("Error generating purchase for legacy dev:", err);
+      }
+    };
+
+    setupListeners();
+
+    return () => {
+      if (unsubscribePurchases) unsubscribePurchases();
+    };
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -152,7 +207,7 @@ export default function AdminPurchases() {
     setFormData(prev => ({ ...prev, parcelas: newParcelas }));
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, isDocument: boolean = false) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -190,7 +245,7 @@ export default function AdminPurchases() {
           
           setFormData(prev => ({
             ...prev,
-            fotos: [...prev.fotos, compressedData]
+            [isDocument ? 'documentos' : 'fotos']: [...(prev[isDocument ? 'documentos' : 'fotos'] || []), compressedData]
           }));
         };
       };
@@ -198,14 +253,15 @@ export default function AdminPurchases() {
     });
   };
 
-  const removePhoto = (index: number) => {
+  const removePhoto = (index: number, isDocument: boolean = false) => {
     setFormData(prev => ({
       ...prev,
-      fotos: prev.fotos.filter((_, i) => i !== index)
+      [isDocument ? 'documentos' : 'fotos']: (prev[isDocument ? 'documentos' : 'fotos'] || []).filter((_, i) => i !== index)
     }));
   };
 
   const handleEdit = (purchase: PurchaseRecord) => {
+    setActiveTab('compra');
     setFormData({
       motoInfo: purchase.motoInfo,
       vendedorNome: purchase.vendedorNome,
@@ -218,12 +274,54 @@ export default function AdminPurchases() {
       parcelas: purchase.parcelas,
       dataCompra: purchase.dataCompra,
       fotos: purchase.fotos || [],
+      documentos: purchase.documentos || [],
+      custos: purchase.custos || [],
       observacoes: purchase.observacoes || '',
       status: purchase.status,
       isPublished: purchase.isPublished
     });
     setEditingPurchaseId(purchase.id!);
     setShowForm(true);
+  };
+
+  const addCusto = () => {
+    setFormData(prev => ({
+      ...prev,
+      custos: [
+        ...(prev.custos || []),
+        { id: Math.random().toString(36).substring(7), descricao: '', valor: 0, data: new Date().toISOString().split('T')[0] }
+      ]
+    }));
+  };
+
+  const updateCusto = (id: string, field: keyof CustoPurchase, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      custos: prev.custos?.map(c => c.id === id ? { ...c, [field]: value } : c)
+    }));
+  };
+
+  const removeCusto = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      custos: prev.custos?.filter(c => c.id !== id)
+    }));
+  };
+
+  const handleCustoPDFUpload = (e: React.ChangeEvent<HTMLInputElement>, custoId: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      alert("Por favor, selecione um arquivo PDF.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      updateCusto(custoId, 'pdfUrl', reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveAction = async (publish: boolean) => {
@@ -236,7 +334,14 @@ export default function AdminPurchases() {
         throw new Error("Por favor, preencha todos os campos obrigatórios.");
       }
 
-      const purchaseData = { ...formData, isPublished: publish || formData.isPublished };
+      const purchaseData = { ...formData, isPublished: publish || !!formData.isPublished };
+      
+      // Clean up undefined values which Firestore doesn't support
+      Object.keys(purchaseData).forEach(key => {
+        if (purchaseData[key as keyof typeof purchaseData] === undefined) {
+          delete purchaseData[key as keyof typeof purchaseData];
+        }
+      });
 
       if (editingPurchaseId) {
         try {
@@ -293,7 +398,7 @@ export default function AdminPurchases() {
           motoInfo: { marcaModelo: '', placa: '', anoFabricacao: 2024, anoModelo: 2024, quilometragem: '', cor: '', chassi: '', renavam: '' },
           vendedorNome: '', vendedorCpfCnpj: '', vendedorTelefone: '', vendedorEndereco: '',
           valorTotal: 0, entrada: 0, valorFinanciado: 0, parcelas: [],
-          dataCompra: new Date().toISOString().split('T')[0], fotos: [], observacoes: '', status: 'em_estoque'
+          dataCompra: new Date().toISOString().split('T')[0], fotos: [], documentos: [], observacoes: '', status: 'em_estoque'
         });
 
         // Automatically show the receipt for the new purchase
@@ -463,7 +568,37 @@ export default function AdminPurchases() {
         </div>
         
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setActiveTab('compra');
+            setEditingPurchaseId(null);
+            setFormData({
+              motoInfo: {
+                marcaModelo: '',
+                placa: '',
+                anoFabricacao: new Date().getFullYear(),
+                anoModelo: new Date().getFullYear(),
+                quilometragem: '',
+                cor: '',
+                chassi: '',
+                renavam: ''
+              },
+              vendedorNome: '',
+              vendedorCpfCnpj: '',
+              vendedorTelefone: '',
+              vendedorEndereco: '',
+              valorTotal: 0,
+              entrada: 0,
+              valorFinanciado: 0,
+              parcelas: [],
+              dataCompra: new Date().toISOString().split('T')[0],
+              fotos: [],
+              documentos: [],
+              custos: [],
+              observacoes: '',
+              status: 'em_estoque'
+            });
+            setShowForm(true);
+          }}
           className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 text-black rounded-xl font-black uppercase tracking-widest text-xs hover:bg-orange-500 transition-all shadow-[0_0_20px_rgba(234,88,12,0.3)]"
         >
           <Plus size={18} /> Nova Compra
@@ -573,33 +708,55 @@ export default function AdminPurchases() {
               <div className="bg-black p-6 border-b border-orange-600 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="bg-orange-600 p-2 rounded-lg">
-                    <Plus size={20} className="text-black" />
+                    {editingPurchaseId ? <Eye size={20} className="text-black" /> : <Plus size={20} className="text-black" />}
                   </div>
-                  <h3 className="text-xl font-black text-white uppercase tracking-tight">Registrar <span className="text-orange-600">Nova Compra</span></h3>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight">{editingPurchaseId ? 'Detalhes da' : 'Registrar'} <span className="text-orange-600">Compra</span></h3>
                 </div>
                 <button onClick={() => setShowForm(false)} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-500 hover:text-white transition-all">
                   <X size={24} />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                {/* Scanner Button */}
-                <div className="bg-zinc-800/50 p-6 rounded-2xl border border-zinc-800 flex flex-col md:flex-row gap-4 items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                      <Scan size={18} className="text-orange-500" /> Leitura Inteligente de Documento
-                    </h4>
-                    <p className="text-xs text-zinc-400 mt-1">Envie fotos (CRLV, RG, etc.) para preencher os dados automaticamente. Você pode selecionar mais de um arquivo.</p>
-                  </div>
-                  <label className="cursor-pointer bg-orange-600 hover:bg-orange-500 text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(234,88,12,0.3)] flex items-center gap-2 whitespace-nowrap">
-                    <Camera size={16} />
-                    Escanear Documento
-                    <input type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={handleDocumentScan} />
-                  </label>
-                </div>
+              {/* TABS */}
+              <div className="flex border-b border-zinc-800 bg-zinc-950">
+                <button
+                  onClick={() => setActiveTab('compra')}
+                  className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${
+                    activeTab === 'compra' ? 'text-orange-500 border-b-2 border-orange-500 bg-zinc-900' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                  }`}
+                >
+                  Detalhes da Compra
+                </button>
+                <button
+                  onClick={() => setActiveTab('custos')}
+                  className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${
+                    activeTab === 'custos' ? 'text-orange-500 border-b-2 border-orange-500 bg-zinc-900' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                  }`}
+                >
+                  Centro de Custos
+                </button>
+              </div>
 
-                {/* Section: Moto Info */}
-                <div className="space-y-6">
+              <form onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                {activeTab === 'compra' && (
+                  <div className="space-y-8 animate-in fade-in">
+                    {/* Scanner Button */}
+                    <div className="bg-zinc-800/50 p-6 rounded-2xl border border-zinc-800 flex flex-col md:flex-row gap-4 items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                          <Scan size={18} className="text-orange-500" /> Leitura Inteligente de Documento
+                        </h4>
+                        <p className="text-xs text-zinc-400 mt-1">Envie fotos (CRLV, RG, etc.) para preencher os dados automaticamente. Você pode selecionar mais de um arquivo.</p>
+                      </div>
+                      <label className="cursor-pointer bg-orange-600 hover:bg-orange-500 text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(234,88,12,0.3)] flex items-center gap-2 whitespace-nowrap">
+                        <Camera size={16} />
+                        Escanear Documento
+                        <input type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={handleDocumentScan} />
+                      </label>
+                    </div>
+
+                    {/* Section: Moto Info */}
+                    <div className="space-y-6">
                   <h4 className="text-xs font-black text-orange-600 uppercase tracking-[0.3em] flex items-center gap-2">
                     <Bike size={14} /> Informações da Moto
                   </h4>
@@ -727,32 +884,133 @@ export default function AdminPurchases() {
                 {/* Section: Photos */}
                 <div className="space-y-6 pt-6 border-t border-zinc-800">
                   <h4 className="text-xs font-black text-orange-600 uppercase tracking-[0.3em] flex items-center gap-2">
-                    <Camera size={14} /> Fotos da Moto / Documentos
+                    <Camera size={14} /> Fotos da Moto (Publicadas no Estoque)
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {formData.fotos.map((foto, index) => (
                       <div key={index} className="aspect-square relative rounded-xl overflow-hidden border border-zinc-800 group">
                         <img src={foto} alt="Preview" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => removePhoto(index)} className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button" onClick={() => removePhoto(index, false)} className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
                           <Trash2 size={12} />
                         </button>
                       </div>
                     ))}
                     <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-zinc-800 rounded-xl hover:border-orange-600 hover:bg-orange-600/5 cursor-pointer transition-all">
                       <Plus size={24} className="text-zinc-500 mb-2" />
-                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Adicionar Foto</span>
-                      <input type="file" multiple accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest text-center px-2">Adicionar Foto da Moto</span>
+                      <input type="file" multiple accept="image/*" onChange={(e) => handlePhotoUpload(e, false)} className="hidden" />
                     </label>
                   </div>
                 </div>
 
-                {/* Section: Observations */}
-                <div className="space-y-4 pt-6 border-t border-zinc-800">
+                {/* Section: Documents */}
+                <div className="space-y-6 pt-6 border-t border-zinc-800">
                   <h4 className="text-xs font-black text-orange-600 uppercase tracking-[0.3em] flex items-center gap-2">
-                    <Info size={14} /> Observações
+                    <FileText size={14} /> Documentos Anexos (Apenas Interno)
                   </h4>
-                  <textarea name="observacoes" value={formData.observacoes} onChange={handleInputChange} rows={4} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none resize-none" placeholder="Detalhes adicionais sobre a compra, estado da moto, etc..." />
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {formData.documentos?.map((docImg, index) => (
+                      <div key={index} className="aspect-square relative rounded-xl overflow-hidden border border-zinc-800 group">
+                        <img src={docImg} alt="Document Preview" className="w-full h-full object-cover" />
+                        <button type="button" onClick={() => removePhoto(index, true)} className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-zinc-800 rounded-xl hover:border-orange-600 hover:bg-orange-600/5 cursor-pointer transition-all">
+                      <Plus size={24} className="text-zinc-500 mb-2" />
+                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest text-center px-2">Adicionar Documento</span>
+                      <input type="file" multiple accept="image/*" onChange={(e) => handlePhotoUpload(e, true)} className="hidden" />
+                    </label>
+                  </div>
                 </div>
+
+                    {/* Section: Observations */}
+                    <div className="space-y-4 pt-6 border-t border-zinc-800">
+                      <h4 className="text-xs font-black text-orange-600 uppercase tracking-[0.3em] flex items-center gap-2">
+                        <Info size={14} /> Observações
+                      </h4>
+                      <textarea name="observacoes" value={formData.observacoes} onChange={handleInputChange} rows={4} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none resize-none" placeholder="Detalhes adicionais sobre a compra, estado da moto, etc..." />
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'custos' && (
+                  <div className="space-y-8 animate-in fade-in">
+                    <div className="flex justify-between items-center mb-6">
+                      <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                        <DollarSign size={18} className="text-orange-500" /> Histórico de Custos / OS
+                      </h4>
+                      <button type="button" onClick={addCusto} className="flex items-center gap-2 bg-zinc-800 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all">
+                        <Plus size={14} />
+                        Lançar Custo
+                      </button>
+                    </div>
+
+                    {formData.custos?.length === 0 ? (
+                      <div className="bg-zinc-950 rounded-xl p-8 border border-zinc-800 text-center">
+                        <p className="text-zinc-500 text-sm">Nenhum custo lançado para esta moto.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {formData.custos?.map((custo) => (
+                          <div key={custo.id} className="bg-zinc-950 p-4 border border-zinc-800 rounded-xl space-y-4">
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="flex-1 space-y-1">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Descrição</label>
+                                <input type="text" value={custo.descricao} onChange={(e) => updateCusto(custo.id, 'descricao', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-orange-600 outline-none" placeholder="Ex: Multa, Revisão, Troca de óleo" />
+                              </div>
+                              <div className="w-32 space-y-1">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Valor</label>
+                                <input type="number" 
+                                  value={custo.valor === 0 ? '' : custo.valor}
+                                  onChange={(e) => updateCusto(custo.id, 'valor', parseFloat(e.target.value) || 0)}
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-orange-600 outline-none" placeholder="R$ 0,00" />
+                              </div>
+                              <div className="w-32 space-y-1">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Data</label>
+                                <input type="date" value={custo.data} onChange={(e) => updateCusto(custo.id, 'data', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-orange-600 outline-none" />
+                              </div>
+                              <button type="button" onClick={() => removeCusto(custo.id)} className="mt-6 p-2 bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white rounded-lg transition-colors">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                            
+                            <div className="flex gap-4 items-start">
+                              <div className="flex-[2] space-y-1">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Observação Adicional</label>
+                                <input type="text" value={custo.observacao || ''} onChange={(e) => updateCusto(custo.id, 'observacao', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-orange-600 outline-none" placeholder="" />
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Anexo / Ordem Serviço (PDF)</label>
+                                {custo.pdfUrl ? (
+                                  <div className="flex items-center justify-between bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2">
+                                    <span className="text-xs text-orange-500 truncate flex items-center gap-2 font-black uppercase"><FileText size={12}/> Anexado</span>
+                                    <button type="button" onClick={() => updateCusto(custo.id, 'pdfUrl', '')} className="text-red-500 px-2 hover:bg-red-500/10 rounded">
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <label className="flex items-center justify-center gap-2 cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 w-full py-2 rounded-lg text-xs font-bold transition-all border border-zinc-700">
+                                    <FileText size={14} /> Anexar PDF
+                                    <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleCustoPDFUpload(e, custo.id)} />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        <div className="flex justify-between items-center bg-zinc-900 border border-orange-600/50 p-4 rounded-xl shadow-lg mt-6">
+                           <span className="text-xs font-black uppercase text-zinc-400 tracking-widest">Custo Total Acumulado:</span>
+                           <span className="text-2xl font-black text-orange-500">
+                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.custos?.reduce((acc, c) => acc + (c.valor || 0), 0) || 0)}
+                           </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {saveError && (
                   <div className="bg-red-600/20 border border-red-600/50 p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">

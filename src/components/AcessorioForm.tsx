@@ -21,6 +21,7 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
     precoPromocional: acessorio?.precoPromocional || 0,
     emPromocao: acessorio?.emPromocao || false,
     fotos: acessorio?.fotos || [],
+    documentos: acessorio?.documentos || [],
     aplicacao: acessorio?.aplicacao || '',
     marcaMoto: acessorio?.marcaMoto || '',
     modeloMoto: acessorio?.modeloMoto || '',
@@ -74,11 +75,11 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
     });
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isDocument: boolean = false) => {
     const files = e.target.files;
     if (!files) return;
 
-    if (formData.fotos.length + files.length > 4) {
+    if (!isDocument && formData.fotos.length + files.length > 4) {
       alert("Você pode adicionar no máximo 4 fotos por acessório.");
       return;
     }
@@ -90,7 +91,7 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
 
       setFormData(prev => ({
         ...prev,
-        fotos: [...prev.fotos, ...compressedPhotos]
+        [isDocument ? 'documentos' : 'fotos']: [...(prev[isDocument ? 'documentos' : 'fotos'] || []), ...compressedPhotos]
       }));
     } catch (error) {
       console.error("Error compressing images:", error);
@@ -98,10 +99,10 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
     }
   };
 
-  const removePhoto = (index: number) => {
+  const removePhoto = (index: number, isDocument: boolean = false) => {
     setFormData(prev => ({
       ...prev,
-      fotos: prev.fotos.filter((_, i) => i !== index)
+      [isDocument ? 'documentos' : 'fotos']: (prev[isDocument ? 'documentos' : 'fotos'] || []).filter((_, i) => i !== index)
     }));
   };
 
@@ -172,37 +173,62 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
       <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-8">
         {/* Fotos */}
         <div className="space-y-4">
-          <label className="block text-sm font-bold text-zinc-400 uppercase tracking-wider">Fotos do Produto</label>
+          <label className="block text-sm font-bold text-zinc-400 uppercase tracking-wider">Fotos do Produto (Públicas)</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {formData.fotos.map((foto, index) => (
               <div key={index} className="relative aspect-square rounded-xl overflow-hidden group border border-zinc-800">
                 <img src={foto} alt={`Foto ${index + 1}`} className="w-full h-full object-cover" />
                 <button
                   type="button"
-                  onClick={() => removePhoto(index)}
+                  onClick={() => removePhoto(index, false)}
                   className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500 text-white rounded-lg backdrop-blur-sm transition-colors opacity-0 group-hover:opacity-100"
                 >
                   <X size={16} />
                 </button>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="aspect-square rounded-xl border-2 border-dashed border-zinc-700 hover:border-orange-500 hover:bg-orange-500/5 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-orange-500 transition-all"
-            >
+            <label className="aspect-square rounded-xl border-2 border-dashed border-zinc-700 hover:border-orange-500 hover:bg-orange-500/5 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-orange-500 transition-all cursor-pointer">
               <Camera size={32} />
-              <span className="text-xs font-bold uppercase tracking-wider">Adicionar Foto</span>
-            </button>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-center px-2">Adicionar Foto</span>
+              <input
+                type="file"
+                onChange={(e) => handlePhotoUpload(e, false)}
+                accept="image/*"
+                multiple
+                className="hidden"
+              />
+            </label>
           </div>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handlePhotoUpload}
-            accept="image/*"
-            multiple
-            className="hidden"
-          />
+        </div>
+
+        {/* Documentos */}
+        <div className="space-y-4 pt-4 border-t border-zinc-800">
+          <label className="block text-sm font-bold text-zinc-400 uppercase tracking-wider">Documentos Anexos (Somente Internos)</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {formData.documentos?.map((doc, index) => (
+              <div key={index} className="relative aspect-square rounded-xl overflow-hidden group border border-zinc-800">
+                <img src={doc} alt={`Documento ${index + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(index, true)}
+                  className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500 text-white rounded-lg backdrop-blur-sm transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+            <label className="aspect-square rounded-xl border-2 border-dashed border-zinc-700 hover:border-orange-500 hover:bg-orange-500/5 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-orange-500 transition-all cursor-pointer">
+              <Camera size={32} />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-center px-2">Anexar Documento</span>
+              <input
+                type="file"
+                onChange={(e) => handlePhotoUpload(e, true)}
+                accept="image/*"
+                multiple
+                className="hidden"
+              />
+            </label>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

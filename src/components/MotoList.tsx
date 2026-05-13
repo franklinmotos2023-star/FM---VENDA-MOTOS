@@ -92,15 +92,15 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
               <>
                 <button
                   onClick={prevImg}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1.5 rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-orange-600"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/40 text-black md:text-white p-2 md:p-1.5 rounded-full opacity-100 md:opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-orange-500 md:hover:bg-orange-600 shadow-lg"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={28} className="md:w-5 md:h-5" />
                 </button>
                 <button
                   onClick={nextImg}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1.5 rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-orange-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/40 text-black md:text-white p-2 md:p-1.5 rounded-full opacity-100 md:opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-orange-500 md:hover:bg-orange-600 shadow-lg"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={28} className="md:w-5 md:h-5" />
                 </button>
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
                   {moto.fotos.map((_, i) => (
@@ -298,15 +298,15 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
                       <>
                         <button
                           onClick={prevImage}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-orange-600"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/40 text-black md:text-white p-2.5 md:p-2 rounded-full opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity hover:bg-orange-500 md:hover:bg-orange-600 shadow-xl"
                         >
-                          <ChevronLeft size={24} />
+                          <ChevronLeft size={32} className="md:w-6 md:h-6" />
                         </button>
                         <button
                           onClick={nextImage}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-orange-600"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/40 text-black md:text-white p-2.5 md:p-2 rounded-full opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity hover:bg-orange-500 md:hover:bg-orange-600 shadow-xl"
                         >
-                          <ChevronRight size={24} />
+                          <ChevronRight size={32} className="md:w-6 md:h-6" />
                         </button>
                         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
                           {selectedMoto.fotos.map((_, i) => (

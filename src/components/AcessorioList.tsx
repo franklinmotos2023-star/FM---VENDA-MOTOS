@@ -385,15 +385,15 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
                       <>
                         <button 
                           onClick={(e) => prevImage(e, acessorio.id, acessorio.fotos.length)}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-orange-600 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/50 text-black md:text-white p-2 md:p-1.5 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-orange-500 md:hover:bg-orange-600 shadow-lg"
                         >
-                          <ChevronLeft size={20} />
+                          <ChevronLeft size={28} className="md:w-5 md:h-5" />
                         </button>
                         <button 
                           onClick={(e) => nextImage(e, acessorio.id, acessorio.fotos.length)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-orange-600 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/50 text-black md:text-white p-2 md:p-1.5 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-orange-500 md:hover:bg-orange-600 shadow-lg"
                         >
-                          <ChevronRight size={20} />
+                          <ChevronRight size={28} className="md:w-5 md:h-5" />
                         </button>
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
                           {acessorio.fotos.map((_, idx) => (
@@ -601,15 +601,15 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
                     <>
                       <button 
                         onClick={(e) => prevImage(e, acessorioDetails.id, acessorioDetails.fotos.length)}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-orange-600 text-white rounded-full backdrop-blur-sm transition-all"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/50 text-black md:text-white p-2.5 md:p-2 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-orange-500 md:hover:bg-orange-600 shadow-xl"
                       >
-                        <ChevronLeft size={24} />
+                        <ChevronLeft size={32} className="md:w-6 md:h-6" />
                       </button>
                       <button 
                         onClick={(e) => nextImage(e, acessorioDetails.id, acessorioDetails.fotos.length)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-orange-600 text-white rounded-full backdrop-blur-sm transition-all"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/50 text-black md:text-white p-2.5 md:p-2 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-orange-500 md:hover:bg-orange-600 shadow-xl"
                       >
-                        <ChevronRight size={24} />
+                        <ChevronRight size={32} className="md:w-6 md:h-6" />
                       </button>
                       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                         {acessorioDetails.fotos.map((_, idx) => (

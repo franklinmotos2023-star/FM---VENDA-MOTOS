@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Acessorio } from '../types';
-import { Camera, X, Save, ArrowLeft, Wand2, Loader2, Tag, CheckCircle, ChevronDown } from 'lucide-react';
+import { Camera, X, Save, ArrowLeft, Wand2, Loader2, Tag, CheckCircle, ChevronDown, FileText, Eye } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import { useAcessoriosConfig } from '../hooks/useAcessoriosConfig';
 import MultiSelect from './MultiSelect';
@@ -75,6 +75,40 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
     });
   };
 
+  const openDocument = (docString: string) => {
+    if (!docString) return;
+    if (docString.startsWith('data:application/pdf')) {
+      try {
+        const parts = docString.split(';base64,');
+        if (parts.length === 2) {
+          const contentType = parts[0].split(':')[1];
+          const raw = window.atob(parts[1]);
+          const rawLength = raw.length;
+          const uInt8Array = new Uint8Array(rawLength);
+          for (let i = 0; i < rawLength; ++i) {
+            uInt8Array[i] = raw.charCodeAt(i);
+          }
+          const blob = new Blob([uInt8Array], { type: contentType });
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+        } else {
+          const newWindow = window.open();
+          newWindow?.document.write(`<iframe src="${docString}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        }
+      } catch (e) {
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.location.href = docString;
+        }
+      }
+    } else {
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`<img src="${docString}" style="max-width:100%; max-height:100%; display:block; margin:auto;" />`);
+      }
+    }
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isDocument: boolean = false) => {
     const files = e.target.files;
     if (!files) return;
@@ -85,9 +119,20 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
     }
 
     try {
-      const compressedPhotos = await Promise.all(
-        (Array.from(files) as File[]).map(file => compressImage(file))
-      );
+      const uploadPromises = (Array.from(files) as File[]).map(file => {
+        if (isDocument && file.type === "application/pdf") {
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              resolve(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+        return compressImage(file);
+      });
+
+      const compressedPhotos = await Promise.all(uploadPromises);
 
       setFormData(prev => ({
         ...prev,
@@ -205,25 +250,66 @@ export default function AcessorioForm({ acessorio, onSave, onCancel }: Acessorio
         <div className="space-y-4 pt-4 border-t border-zinc-800">
           <label className="block text-sm font-bold text-zinc-400 uppercase tracking-wider">Documentos Anexos (Somente Internos)</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {formData.documentos?.map((doc, index) => (
-              <div key={index} className="relative aspect-square rounded-xl overflow-hidden group border border-zinc-800">
-                <img src={doc} alt={`Documento ${index + 1}`} className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removePhoto(index, true)}
-                  className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500 text-white rounded-lg backdrop-blur-sm transition-colors opacity-0 group-hover:opacity-100"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ))}
+            {formData.documentos?.map((doc, index) => {
+              const isPdf = typeof doc === 'string' && doc.startsWith('data:application/pdf');
+              return (
+                <div key={index} className="aspect-square relative rounded-xl overflow-hidden border border-zinc-800 group bg-zinc-950 flex flex-col justify-center items-center cursor-pointer hover:border-orange-500/50 transition-all shadow-md">
+                  {isPdf ? (
+                    <div 
+                      onClick={() => openDocument(doc)}
+                      className="w-full h-full flex flex-col items-center justify-center p-4 bg-zinc-900 text-zinc-300 relative"
+                    >
+                      <FileText size={48} className="text-red-500 mb-2 animate-pulse" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-center text-zinc-400 max-w-full truncate px-2">Documento PDF</span>
+                      <span className="text-[9px] text-zinc-500 mt-1">Clique para abrir</span>
+                      
+                      {/* Hover action bar */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 font-bold text-xs uppercase text-white">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openDocument(doc); }}
+                          className="p-2 bg-orange-600 hover:bg-orange-500 text-black rounded-lg transition-colors"
+                          title="Visualizar"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <img src={doc} alt={`Documento ${index + 1}`} className="w-full h-full object-cover" />
+                      {/* Hover action bar */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openDocument(doc)}
+                          className="p-2 bg-orange-600 hover:bg-orange-500 text-black rounded-lg transition-colors"
+                          title="Visualizar"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removePhoto(index, true); }}
+                    className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500 text-white rounded-lg backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 z-10"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
             <label className="aspect-square rounded-xl border-2 border-dashed border-zinc-700 hover:border-orange-500 hover:bg-orange-500/5 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-orange-500 transition-all cursor-pointer">
               <Camera size={32} />
               <span className="text-[10px] font-bold uppercase tracking-wider text-center px-2">Anexar Documento</span>
               <input
                 type="file"
                 onChange={(e) => handlePhotoUpload(e, true)}
-                accept="image/*"
+                accept="image/*,application/pdf"
                 multiple
                 className="hidden"
               />

@@ -35,10 +35,53 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
-  const handlePrint = useReactToPrint({
-    contentRef: receiptRef,
-    documentTitle: `Recibo-${saleRecord.motoPlaca}-${buyerData.nome.replace(/\s+/g, '-').toLowerCase()}`,
-  });
+  const handlePrint = () => {
+    if (!receiptRef.current) return;
+    const originalTitle = document.title;
+    const documentTitle = `Recibo-${saleRecord.motoPlaca}-${buyerData.nome.replace(/\s+/g, '-').toLowerCase()}`;
+    document.title = documentTitle;
+
+    const printSection = document.createElement('div');
+    printSection.id = 'react-to-print-fallback-section';
+
+    const styleElement = document.createElement('style');
+    styleElement.id = 'react-to-print-fallback-style';
+    styleElement.innerHTML = `
+      @media print {
+        body > :not(#react-to-print-fallback-section) {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        #react-to-print-fallback-section, #react-to-print-fallback-section * {
+          visibility: visible !important;
+          display: block !important;
+        }
+        #react-to-print-fallback-section {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          height: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(styleElement);
+    const clone = receiptRef.current.cloneNode(true) as HTMLElement;
+    printSection.appendChild(clone);
+    document.body.appendChild(printSection);
+
+    window.print();
+
+    setTimeout(() => {
+      printSection.remove();
+      styleElement.remove();
+      document.title = originalTitle;
+    }, 1000);
+  };
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -58,7 +101,113 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
         logging: true,
         backgroundColor: '#ffffff',
         scrollX: 0,
-        scrollY: -window.scrollY
+        scrollY: -window.scrollY,
+        onclone: (clonedDoc) => {
+          const oklchToRgb = (L: number, C: number, H: number, alpha = 1) => {
+            const a_coord = C * Math.cos((H * Math.PI) / 180);
+            const b_coord = C * Math.sin((H * Math.PI) / 180);
+
+            const l_ = L + 0.3963377774 * a_coord + 0.2158037573 * b_coord;
+            const m_ = L - 0.1055613458 * a_coord - 0.0638541128 * b_coord;
+            const s_ = L - 0.0894841775 * a_coord - 1.2914855414 * b_coord;
+
+            const l = l_ * l_ * l_;
+            const m = m_ * m_ * m_;
+            const s = s_ * s_ * s_;
+
+            const r_linear = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+            const g_linear = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+            const b_linear = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+            const f = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+            const r = Math.round(Math.max(0, Math.min(1, f(r_linear))) * 255);
+            const g = Math.round(Math.max(0, Math.min(1, f(g_linear))) * 255);
+            const b = Math.round(Math.max(0, Math.min(1, f(b_linear))) * 255);
+
+            if (alpha !== undefined && alpha !== null && alpha !== 1) {
+              return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            return `rgb(${r}, ${g}, ${b})`;
+          };
+
+          const convertString = (str: string) => {
+            return str.replace(/oklch\(([^)]+)\)/g, (match, content) => {
+              try {
+                const parts = content.split('/');
+                const coords = parts[0].trim().split(/\s+/);
+                if (coords.length < 3) return match;
+                const L = parseFloat(coords[0]);
+                const C = parseFloat(coords[1]);
+                const H = parseFloat(coords[2]);
+                let alpha = 1;
+                if (parts[1]) {
+                  const alphaStr = parts[1].trim();
+                  if (alphaStr.endsWith('%')) {
+                    alpha = parseFloat(alphaStr) / 100;
+                  } else {
+                    alpha = parseFloat(alphaStr);
+                  }
+                }
+                if (isNaN(L) || isNaN(C) || isNaN(H)) return match;
+                return oklchToRgb(L, C, H, alpha);
+              } catch (e) {
+                return match;
+              }
+            });
+          };
+
+          // Filter and clean stylesheet text of oklch
+          clonedDoc.querySelectorAll('style').forEach(style => {
+            try {
+              style.innerHTML = convertString(style.innerHTML);
+            } catch (e) {
+              console.warn("Failed to sanitize style tag:", e);
+            }
+          });
+
+          // Filter inline styles
+          clonedDoc.querySelectorAll('[style]').forEach(el => {
+            const styleAttr = el.getAttribute('style');
+            if (styleAttr) {
+              try {
+                el.setAttribute('style', convertString(styleAttr));
+              } catch (e) {}
+            }
+          });
+
+          const style = clonedDoc.createElement('style');
+          style.innerHTML = `
+            :root {
+              --color-white: #ffffff !important;
+              --color-black: #000000 !important;
+              --color-zinc-50: #fafafa !important;
+              --color-zinc-100: #f4f4f5 !important;
+              --color-zinc-200: #e4e4e7 !important;
+              --color-zinc-300: #d4d4d8 !important;
+              --color-zinc-400: #a1a1aa !important;
+              --color-zinc-500: #71717a !important;
+              --color-zinc-600: #52525b !important;
+              --color-zinc-700: #3f3f46 !important;
+              --color-zinc-800: #27272a !important;
+              --color-zinc-900: #18181b !important;
+              --color-zinc-950: #09090b !important;
+              --color-orange-50: #fff7ed !important;
+              --color-orange-100: #ffedd5 !important;
+              --color-orange-200: #fed7aa !important;
+              --color-orange-300: #fdba74 !important;
+              --color-orange-400: #fb923c !important;
+              --color-orange-500: #f97316 !important;
+              --color-orange-600: #ea580c !important;
+              --color-orange-700: #c2410c !important;
+              --color-blue-600: #2563eb !important;
+              --color-blue-700: #1d4ed8 !important;
+              --color-green-500: #22c55e !important;
+              --color-green-600: #16a34a !important;
+            }
+          `;
+          const target = clonedDoc.head || clonedDoc.body || clonedDoc.documentElement;
+          target.appendChild(style);
+        }
       });
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -69,7 +218,6 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
       });
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
       
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;

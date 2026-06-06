@@ -18,6 +18,10 @@ export type Moto = {
   documentos?: string[];
   cambio?: string;
   combustivel?: string;
+  chassi?: string;
+  renavam?: string;
+  codigoCla?: string;
+  motor?: string;
   descricao?: string;
   equipamentos?: string[];
   planos?: PlanoFinanceiro[];
@@ -142,6 +146,9 @@ export type PurchaseRecord = {
     cor: string;
     chassi?: string;
     renavam?: string;
+    combustivel?: string;
+    codigoCla?: string;
+    motor?: string;
   };
   vendedorNome: string;
   vendedorCpfCnpj: string;

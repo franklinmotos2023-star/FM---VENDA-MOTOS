@@ -5,6 +5,114 @@ import { Plus, Search, Filter, Calendar, User, Phone, DollarSign, FileText, Tras
 import PurchaseReceiptGenerator from './PurchaseReceiptGenerator';
 import { motion, AnimatePresence } from 'motion/react';
 
+const compressImageFile = (file: File, maxDim = 800, quality = 0.5): Promise<{mimeType: string, data: string, url: string}> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const resultString = reader.result as string;
+      
+      if (!file.type.startsWith('image/')) {
+        resolve({
+          mimeType: file.type || "application/pdf",
+          data: resultString.split(',')[1] || "",
+          url: resultString
+        });
+        return;
+      }
+
+      const img = new Image();
+      img.src = resultString;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height *= maxDim / width;
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width *= maxDim / height;
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        const compressedData = canvas.toDataURL('image/jpeg', quality);
+        resolve({
+          mimeType: 'image/jpeg',
+          data: compressedData.split(',')[1],
+          url: compressedData
+        });
+      };
+      img.onerror = () => {
+        resolve({
+          mimeType: file.type || "image/jpeg",
+          data: resultString.split(',')[1] || "",
+          url: resultString
+        });
+      };
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+const compressBase64Image = (base64Str: string, maxDim = 800, quality = 0.5): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith('data:image/')) {
+      resolve(base64Str);
+      return;
+    }
+
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width <= maxDim && height <= maxDim) {
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const compressedData = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedData);
+        return;
+      }
+
+      if (width > height) {
+        if (width > maxDim) {
+          height *= maxDim / width;
+          width = maxDim;
+        }
+      } else {
+        if (height > maxDim) {
+          width *= maxDim / height;
+          height = maxDim;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      
+      const compressedData = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressedData);
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
+
 export default function AdminPurchases() {
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +134,7 @@ export default function AdminPurchases() {
   const [scannerImage, setScannerImage] = useState<string | null>(null);
   const [scannedData, setScannedData] = useState<any>(null);
   const [showScannerModal, setShowScannerModal] = useState(false);
+  const [scannedFilesToAttach, setScannedFilesToAttach] = useState<string[]>([]);
   
   // Tabs
   const [activeTab, setActiveTab] = useState<'compra'|'custos'>('compra');
@@ -40,7 +149,10 @@ export default function AdminPurchases() {
       quilometragem: '',
       cor: '',
       chassi: '',
-      renavam: ''
+      renavam: '',
+      combustivel: '',
+      codigoCla: '',
+      motor: ''
     },
     vendedorNome: '',
     vendedorCpfCnpj: '',
@@ -101,8 +213,8 @@ export default function AdminPurchases() {
               vendedorCpfCnpj: '',
               vendedorTelefone: '',
               valorTotal: (moto.precoAVista || 0) * 0.8,
-              entrada: 0,
-              valorFinanciado: 0,
+              entrada: ((moto.precoAVista || 0) * 0.8) + 1500,
+              valorFinanciado: (moto.precoAVista || 0) * 0.8,
               parcelas: [],
               dataCompra: moto.dataEntrada ? new Date(moto.dataEntrada).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
               fotos: moto.fotos || [],
@@ -160,10 +272,9 @@ export default function AdminPurchases() {
           }
         };
         
-        // Auto-calculate valorFinanciado if valorTotal or entrada changes
-        if (parent === 'valorTotal' || parent === 'entrada' || name === 'valorTotal' || name === 'entrada') {
-          newState.valorFinanciado = Math.max(0, newState.valorTotal - newState.entrada);
-        }
+        const extraCosts = newState.custos?.reduce((acc, c) => acc + (c.valor || 0), 0) || 0;
+        newState.entrada = extraCosts + 1500;
+        newState.valorFinanciado = newState.valorTotal;
         
         return newState;
       });
@@ -174,9 +285,9 @@ export default function AdminPurchases() {
           [name]: numValue
         };
         
-        if (name === 'valorTotal' || name === 'entrada') {
-          newState.valorFinanciado = Math.max(0, newState.valorTotal - newState.entrada);
-        }
+        const extraCosts = newState.custos?.reduce((acc, c) => acc + (c.valor || 0), 0) || 0;
+        newState.entrada = extraCosts + 1500;
+        newState.valorFinanciado = newState.valorTotal;
         
         return newState;
       });
@@ -207,50 +318,65 @@ export default function AdminPurchases() {
     setFormData(prev => ({ ...prev, parcelas: newParcelas }));
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, isDocument: boolean = false) => {
+  const openDocument = (docString: string) => {
+    if (!docString) return;
+    if (docString.startsWith('data:application/pdf')) {
+      try {
+        const parts = docString.split(';base64,');
+        if (parts.length === 2) {
+          const contentType = parts[0].split(':')[1];
+          const raw = window.atob(parts[1]);
+          const rawLength = raw.length;
+          const uInt8Array = new Uint8Array(rawLength);
+          for (let i = 0; i < rawLength; ++i) {
+            uInt8Array[i] = raw.charCodeAt(i);
+          }
+          const blob = new Blob([uInt8Array], { type: contentType });
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+        } else {
+          const newWindow = window.open();
+          newWindow?.document.write(`<iframe src="${docString}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        }
+      } catch (e) {
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.location.href = docString;
+        }
+      }
+    } else {
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`<img src="${docString}" style="max-width:100%; max-height:100%; display:block; margin:auto;" />`);
+      }
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isDocument: boolean = false) => {
     const files = e.target.files;
     if (!files) return;
 
-    Array.from(files).forEach((file: File) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const img = new Image();
-        img.src = reader.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
+    for (const file of Array.from(files) as File[]) {
+      if (isDocument && file.type === "application/pdf") {
+        if (file.size > 300 * 1024) {
+          alert(`O arquivo PDF (${(file.size / 1024).toFixed(0)} KB) excede o limite permitido de 300 KB. Por favor, utilize um arquivo de tamanho menor.`);
+          continue;
+        }
+        const compressed = await compressImageFile(file);
+        setFormData(prev => ({
+          ...prev,
+          documentos: [...(prev.documentos || []), compressed.url]
+        }));
+        continue;
+      }
 
-          // Max dimension 1200px
-          const maxDim = 1200;
-          if (width > height) {
-            if (width > maxDim) {
-              height *= maxDim / width;
-              width = maxDim;
-            }
-          } else {
-            if (height > maxDim) {
-              width *= maxDim / height;
-              height = maxDim;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Compress to 0.7 quality
-          const compressedData = canvas.toDataURL('image/jpeg', 0.7);
-          
-          setFormData(prev => ({
-            ...prev,
-            [isDocument ? 'documentos' : 'fotos']: [...(prev[isDocument ? 'documentos' : 'fotos'] || []), compressedData]
-          }));
-        };
-      };
-      reader.readAsDataURL(file);
-    });
+      // Compress image to 800px max and 0.5 quality
+      const compressed = await compressImageFile(file, 800, 0.5);
+      setFormData(prev => ({
+        ...prev,
+        [isDocument ? 'documentos' : 'fotos']: [...(prev[isDocument ? 'documentos' : 'fotos'] || []), compressed.url]
+      }));
+    }
   };
 
   const removePhoto = (index: number, isDocument: boolean = false) => {
@@ -285,30 +411,45 @@ export default function AdminPurchases() {
   };
 
   const addCusto = () => {
-    setFormData(prev => ({
-      ...prev,
-      custos: [
+    setFormData(prev => {
+      const newCustos = [
         ...(prev.custos || []),
         { id: Math.random().toString(36).substring(7), descricao: '', valor: 0, data: new Date().toISOString().split('T')[0] }
-      ]
-    }));
+      ];
+      const extraCosts = newCustos.reduce((acc, c) => acc + (c.valor || 0), 0);
+      return {
+        ...prev,
+        custos: newCustos,
+        entrada: extraCosts + 1500
+      };
+    });
   };
 
   const updateCusto = (id: string, field: keyof CustoPurchase, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      custos: prev.custos?.map(c => c.id === id ? { ...c, [field]: value } : c)
-    }));
+    setFormData(prev => {
+      const newCustos = prev.custos?.map(c => c.id === id ? { ...c, [field]: value } : c) || [];
+      const extraCosts = newCustos.reduce((acc, c) => acc + (c.valor || 0), 0);
+      return {
+        ...prev,
+        custos: newCustos,
+        entrada: extraCosts + 1500
+      };
+    });
   };
 
   const removeCusto = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      custos: prev.custos?.filter(c => c.id !== id)
-    }));
+    setFormData(prev => {
+      const newCustos = prev.custos?.filter(c => c.id !== id) || [];
+      const extraCosts = newCustos.reduce((acc, c) => acc + (c.valor || 0), 0);
+      return {
+        ...prev,
+        custos: newCustos,
+        entrada: extraCosts + 1500
+      };
+    });
   };
 
-  const handleCustoPDFUpload = (e: React.ChangeEvent<HTMLInputElement>, custoId: string) => {
+  const handleCustoPDFUpload = async (e: React.ChangeEvent<HTMLInputElement>, custoId: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -317,11 +458,13 @@ export default function AdminPurchases() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      updateCusto(custoId, 'pdfUrl', reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (file.size > 300 * 1024) {
+      alert(`O arquivo PDF (${(file.size / 1024).toFixed(0)} KB) é muito grande. O limite máximo permitido para PDFs é de 300 KB. Por favor, utilize um arquivo menor.`);
+      return;
+    }
+
+    const compressed = await compressImageFile(file);
+    updateCusto(custoId, 'pdfUrl', compressed.url);
   };
 
   const handleSaveAction = async (publish: boolean) => {
@@ -334,13 +477,44 @@ export default function AdminPurchases() {
         throw new Error("Por favor, preencha todos os campos obrigatórios.");
       }
 
-      const purchaseData = { ...formData, isPublished: publish || !!formData.isPublished };
-      
-      // Clean up undefined values which Firestore doesn't support
-      Object.keys(purchaseData).forEach(key => {
-        if (purchaseData[key as keyof typeof purchaseData] === undefined) {
-          delete purchaseData[key as keyof typeof purchaseData];
+      const cleanUndefined = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map(item => cleanUndefined(item));
+        } else if (obj !== null && typeof obj === 'object') {
+          const cleaned: any = {};
+          Object.keys(obj).forEach(key => {
+            if (obj[key] !== undefined) {
+              cleaned[key] = cleanUndefined(obj[key]);
+            }
+          });
+          return cleaned;
         }
+        return obj;
+      };
+
+      // Compress all fotos, documentos and custos to rescue the document from Firestore limit in case of existing/new bloated ones
+      const compressedFotos = await Promise.all(
+        (formData.fotos || []).map(foto => compressBase64Image(foto, 800, 0.5))
+      );
+      const compressedDocumentos = await Promise.all(
+        (formData.documentos || []).map(docString => compressBase64Image(docString, 800, 0.5))
+      );
+      const compressedCustos = await Promise.all(
+        (formData.custos || []).map(async (custo) => {
+          if (custo.pdfUrl) {
+            const compressedPdfUrl = await compressBase64Image(custo.pdfUrl, 800, 0.5);
+            return { ...custo, pdfUrl: compressedPdfUrl };
+          }
+          return custo;
+        })
+      );
+
+      const purchaseData = cleanUndefined({
+        ...formData,
+        fotos: compressedFotos,
+        documentos: compressedDocumentos,
+        custos: compressedCustos,
+        isPublished: publish || !!formData.isPublished
       });
 
       if (editingPurchaseId) {
@@ -361,7 +535,7 @@ export default function AdminPurchases() {
       
       if (publish && !formData.isPublished) {
         // Also add the moto to the main stock (motos collection)
-        const motoToStock = {
+        const motoToStock = cleanUndefined({
           placa: formData.motoInfo.placa,
           marcaModelo: formData.motoInfo.marcaModelo,
           anoFabricacao: formData.motoInfo.anoFabricacao,
@@ -371,11 +545,14 @@ export default function AdminPurchases() {
           precoAVista: formData.valorTotal * 1.2, // Default 20% markup for stock
           statusRevisao: 'NÃO REVISADA',
           statusDut: 'DUT INCLUSO',
-          fotos: formData.fotos,
+          fotos: compressedFotos,
           chassi: formData.motoInfo.chassi,
           renavam: formData.motoInfo.renavam,
+          combustivel: formData.motoInfo.combustivel,
+          codigoCla: formData.motoInfo.codigoCla,
+          motor: formData.motoInfo.motor,
           dataEntrada: new Date().toISOString()
-        };
+        });
         
         try {
           await addDoc(collection(db, 'motos'), motoToStock);
@@ -395,7 +572,19 @@ export default function AdminPurchases() {
         
         // Reset form
         setFormData({
-          motoInfo: { marcaModelo: '', placa: '', anoFabricacao: 2024, anoModelo: 2024, quilometragem: '', cor: '', chassi: '', renavam: '' },
+          motoInfo: { 
+            marcaModelo: '', 
+            placa: '', 
+            anoFabricacao: 2024, 
+            anoModelo: 2024, 
+            quilometragem: '', 
+            cor: '', 
+            chassi: '', 
+            renavam: '', 
+            combustivel: '', 
+            codigoCla: '', 
+            motor: '' 
+          },
           vendedorNome: '', vendedorCpfCnpj: '', vendedorTelefone: '', vendedorEndereco: '',
           valorTotal: 0, entrada: 0, valorFinanciado: 0, parcelas: [],
           dataCompra: new Date().toISOString().split('T')[0], fotos: [], documentos: [], observacoes: '', status: 'em_estoque'
@@ -421,24 +610,21 @@ export default function AdminPurchases() {
 
     const fileArray = Array.from(files) as File[];
     
-    // Read all files to base64
-    const base64Promises = fileArray.map(file => {
-      return new Promise<{mimeType: string, data: string, url: string}>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          resolve({
-            mimeType: file.type || "image/jpeg",
-            data: result.split(',')[1],
-            url: result
-          });
-        };
-        reader.readAsDataURL(file);
-      });
-    });
+    // Check for large PDFs
+    const oversizedPdf = fileArray.find(file => file.type === "application/pdf" && file.size > 300 * 1024);
+    if (oversizedPdf) {
+      alert(`O arquivo PDF (${(oversizedPdf.size / 1024).toFixed(0)} KB) excede o limite permitido de 300 KB. Por favor, utilize um arquivo menor.`);
+      return;
+    }
 
+    // Read and compress all files
+    const base64Promises = fileArray.map(file => compressImageFile(file, 800, 0.5));
     const base64Files = await Promise.all(base64Promises);
     
+    // Save scanned file URLs to state so we empty them on apply/dismiss, and append to documents
+    const scannedUrls = base64Files.map(f => f.url);
+    setScannedFilesToAttach(scannedUrls);
+
     // Use the first image for the preview
     setScannerImage(base64Files[0].url);
     setShowScannerModal(true);
@@ -467,7 +653,10 @@ export default function AdminPurchases() {
           "renavam": "string ou null",
           "cor": "string ou null",
           "vendedorNome": "string ou null",
-          "vendedorCpfCnpj": "string ou null"
+          "vendedorCpfCnpj": "string ou null",
+          "combustivel": "string ou null",
+          "codigoCla": "string ou null",
+          "motor": "string ou null"
         }`
       });
 
@@ -508,14 +697,19 @@ export default function AdminPurchases() {
         chassi: scannedData.chassi || prev.motoInfo.chassi,
         renavam: scannedData.renavam || prev.motoInfo.renavam,
         cor: scannedData.cor || prev.motoInfo.cor,
+        combustivel: scannedData.combustivel || prev.motoInfo.combustivel,
+        codigoCla: scannedData.codigoCla || prev.motoInfo.codigoCla,
+        motor: scannedData.motor || prev.motoInfo.motor,
       },
       vendedorNome: scannedData.vendedorNome || prev.vendedorNome,
       vendedorCpfCnpj: scannedData.vendedorCpfCnpj || prev.vendedorCpfCnpj,
+      documentos: [...(prev.documentos || []), ...scannedFilesToAttach]
     }));
     
     setShowScannerModal(false);
     setScannerImage(null);
     setScannedData(null);
+    setScannedFilesToAttach([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -538,6 +732,15 @@ export default function AdminPurchases() {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+
+  const getCustoAcumulado = (purchase: Partial<PurchaseRecord> | PurchaseRecord) => {
+    const extraCosts = purchase.custos?.reduce((acc, c) => acc + (c.valor || 0), 0) || 0;
+    return extraCosts;
+  };
+
+  const getPrecoSugerido = (purchase: Partial<PurchaseRecord> | PurchaseRecord) => {
+    return getCustoAcumulado(purchase) + 1500;
   };
 
   const filteredPurchases = purchases.filter(p => 
@@ -580,7 +783,10 @@ export default function AdminPurchases() {
                 quilometragem: '',
                 cor: '',
                 chassi: '',
-                renavam: ''
+                renavam: '',
+                combustivel: '',
+                codigoCla: '',
+                motor: ''
               },
               vendedorNome: '',
               vendedorCpfCnpj: '',
@@ -658,12 +864,12 @@ export default function AdminPurchases() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800/50">
-                    <span className="block text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1">Valor Total</span>
-                    <span className="font-black text-white text-sm">{formatCurrency(purchase.valorTotal)}</span>
+                    <span className="block text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1">Custo da Moto</span>
+                    <span className="font-black text-white text-sm">{formatCurrency(getCustoAcumulado(purchase))}</span>
                   </div>
                   <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800/50">
-                    <span className="block text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1">Entrada</span>
-                    <span className="font-black text-orange-500 text-sm">{formatCurrency(purchase.entrada)}</span>
+                    <span className="block text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1">Preço Sugerido</span>
+                    <span className="font-black text-orange-500 text-sm">{formatCurrency(getPrecoSugerido(purchase))}</span>
                   </div>
                 </div>
 
@@ -751,7 +957,7 @@ export default function AdminPurchases() {
                       <label className="cursor-pointer bg-orange-600 hover:bg-orange-500 text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(234,88,12,0.3)] flex items-center gap-2 whitespace-nowrap">
                         <Camera size={16} />
                         Escanear Documento
-                        <input type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={handleDocumentScan} />
+                        <input type="file" accept="image/*,application/pdf" multiple capture="environment" className="hidden" onChange={handleDocumentScan} />
                       </label>
                     </div>
 
@@ -785,6 +991,41 @@ export default function AdminPurchases() {
                       <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Quilometragem</label>
                       <input required type="text" name="motoInfo.quilometragem" value={formData.motoInfo.quilometragem} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" placeholder="Ex: 15.000km" />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 h-4">
+                        <span>Chassi</span>
+                        <span className="px-1.5 py-0.5 bg-orange-600/15 border border-orange-600/30 text-[8px] font-black text-orange-500 rounded tracking-widest uppercase scale-90 origin-left">Interno</span>
+                      </label>
+                      <input type="text" name="motoInfo.chassi" value={formData.motoInfo.chassi || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" placeholder="Número do Chassi" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 h-4">
+                        <span>Renavam</span>
+                        <span className="px-1.5 py-0.5 bg-orange-600/15 border border-orange-600/30 text-[8px] font-black text-orange-500 rounded tracking-widest uppercase scale-90 origin-left">Interno</span>
+                      </label>
+                      <input type="text" name="motoInfo.renavam" value={formData.motoInfo.renavam || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" placeholder="Número do Renavam" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 h-4">
+                        <span>Combustível</span>
+                        <span className="px-1.5 py-0.5 bg-orange-600/15 border border-orange-600/30 text-[8px] font-black text-orange-500 rounded tracking-widest uppercase scale-90 origin-left">Interno</span>
+                      </label>
+                      <input type="text" name="motoInfo.combustivel" value={formData.motoInfo.combustivel || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" placeholder="Ex: Gasolina / Flex" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 h-4">
+                        <span>Código CLA</span>
+                        <span className="px-1.5 py-0.5 bg-orange-600/15 border border-orange-600/30 text-[8px] font-black text-orange-500 rounded tracking-widest uppercase scale-90 origin-left">Interno</span>
+                      </label>
+                      <input type="text" name="motoInfo.codigoCla" value={formData.motoInfo.codigoCla || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" placeholder="Código CLA" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 h-4">
+                        <span>Motor</span>
+                        <span className="px-1.5 py-0.5 bg-orange-600/15 border border-orange-600/30 text-[8px] font-black text-orange-500 rounded tracking-widest uppercase scale-90 origin-left">Interno</span>
+                      </label>
+                      <input type="text" name="motoInfo.motor" value={formData.motoInfo.motor || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" placeholder="Número do Motor" />
+                    </div>
                   </div>
                 </div>
 
@@ -796,19 +1037,19 @@ export default function AdminPurchases() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Nome do Vendedor</label>
-                      <input required type="text" name="vendedorNome" value={formData.vendedorNome} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" />
+                      <input required type="text" name="vendedorNome" value={formData.vendedorNome || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">CPF / CNPJ</label>
-                      <input required type="text" name="vendedorCpfCnpj" value={formData.vendedorCpfCnpj} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" />
+                      <input required type="text" name="vendedorCpfCnpj" value={formData.vendedorCpfCnpj || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Telefone</label>
-                      <input required type="text" name="vendedorTelefone" value={formData.vendedorTelefone} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" />
+                      <input required type="text" name="vendedorTelefone" value={formData.vendedorTelefone || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Endereço</label>
-                      <input type="text" name="vendedorEndereco" value={formData.vendedorEndereco} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" />
+                      <input type="text" name="vendedorEndereco" value={formData.vendedorEndereco || ''} onChange={handleInputChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none" />
                     </div>
                   </div>
                 </div>
@@ -820,17 +1061,20 @@ export default function AdminPurchases() {
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Valor Total da Compra</label>
+                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Custo Total da Moto</label>
                       <div className="relative">
                         <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-600" size={16} />
                         <input required type="number" name="valorTotal" value={formData.valorTotal} onChange={handleNumberChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none font-bold" />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Valor de Entrada</label>
+                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center justify-between">
+                        <span>Preço Sugerido</span>
+                        <span className="text-[9px] font-black text-green-500 uppercase tracking-widest">Lucro +R$1.500</span>
+                      </label>
                       <div className="relative">
                         <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500" size={16} />
-                        <input required type="number" name="entrada" value={formData.entrada} onChange={handleNumberChange} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none font-bold" />
+                        <input readOnly type="number" name="entrada" value={formData.entrada} className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-green-500 cursor-not-allowed outline-none" />
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -909,18 +1153,63 @@ export default function AdminPurchases() {
                     <FileText size={14} /> Documentos Anexos (Apenas Interno)
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {formData.documentos?.map((docImg, index) => (
-                      <div key={index} className="aspect-square relative rounded-xl overflow-hidden border border-zinc-800 group">
-                        <img src={docImg} alt="Document Preview" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => removePhoto(index, true)} className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
+                    {formData.documentos?.map((docImg, index) => {
+                      const isPdf = typeof docImg === 'string' && docImg.startsWith('data:application/pdf');
+                      return (
+                        <div key={index} className="aspect-square relative rounded-xl overflow-hidden border border-zinc-800 group bg-zinc-950 flex flex-col justify-center items-center cursor-pointer hover:border-orange-600/50 transition-all shadow-md">
+                          {isPdf ? (
+                            <div 
+                              onClick={() => openDocument(docImg)}
+                              className="w-full h-full flex flex-col items-center justify-center p-4 bg-zinc-900 text-zinc-300 relative"
+                            >
+                              <FileText size={42} className="text-red-500 mb-1.5 animate-pulse" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-center text-zinc-400 max-w-full truncate px-1">Documento PDF</span>
+                              <span className="text-[8px] text-zinc-500 mt-1">Clique para abrir</span>
+                              
+                              {/* Hover actions */}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); openDocument(docImg); }}
+                                  className="p-1.5 bg-orange-600 hover:bg-orange-500 text-black rounded-lg transition-colors"
+                                  title="Visualizar"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <img src={docImg} alt="Document Preview" className="w-full h-full object-cover" />
+                              {/* Hover actions */}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openDocument(docImg)}
+                                  className="p-1.5 bg-orange-600 hover:bg-orange-500 text-black rounded-lg transition-colors"
+                                  title="Visualizar"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                              </div>
+                            </>
+                          )}
+                          
+                          {/* Delete button */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); removePhoto(index, true); }}
+                            className="absolute top-2 right-2 p-1 bg-red-600 hover:bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
                     <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-zinc-800 rounded-xl hover:border-orange-600 hover:bg-orange-600/5 cursor-pointer transition-all">
                       <Plus size={24} className="text-zinc-500 mb-2" />
                       <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest text-center px-2">Adicionar Documento</span>
-                      <input type="file" multiple accept="image/*" onChange={(e) => handlePhotoUpload(e, true)} className="hidden" />
+                      <input type="file" multiple accept="image/*,application/pdf" onChange={(e) => handlePhotoUpload(e, true)} className="hidden" />
                     </label>
                   </div>
                 </div>
@@ -930,7 +1219,7 @@ export default function AdminPurchases() {
                       <h4 className="text-xs font-black text-orange-600 uppercase tracking-[0.3em] flex items-center gap-2">
                         <Info size={14} /> Observações
                       </h4>
-                      <textarea name="observacoes" value={formData.observacoes} onChange={handleInputChange} rows={4} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none resize-none" placeholder="Detalhes adicionais sobre a compra, estado da moto, etc..." />
+                      <textarea name="observacoes" value={formData.observacoes || ''} onChange={handleInputChange} rows={4} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-600 outline-none resize-none" placeholder="Detalhes adicionais sobre a compra, estado da moto, etc..." />
                     </div>
                   </div>
                 )}
@@ -1004,7 +1293,7 @@ export default function AdminPurchases() {
                         <div className="flex justify-between items-center bg-zinc-900 border border-orange-600/50 p-4 rounded-xl shadow-lg mt-6">
                            <span className="text-xs font-black uppercase text-zinc-400 tracking-widest">Custo Total Acumulado:</span>
                            <span className="text-2xl font-black text-orange-500">
-                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.custos?.reduce((acc, c) => acc + (c.valor || 0), 0) || 0)}
+                             {formatCurrency(getCustoAcumulado(formData))}
                            </span>
                         </div>
                       </div>
@@ -1140,7 +1429,14 @@ export default function AdminPurchases() {
                 <div className="space-y-6 text-center">
                   <div className="relative w-full h-48 bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800">
                     {scannerImage && (
-                      <img src={scannerImage} alt="Documento" className="w-full h-full object-cover opacity-50" />
+                      scannerImage.startsWith('data:application/pdf') ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-400">
+                          <FileText size={48} className="text-red-500 mb-2 animate-pulse" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Documento PDF</span>
+                        </div>
+                      ) : (
+                        <img src={scannerImage} alt="Documento" className="w-full h-full object-cover opacity-50" />
+                      )
                     )}
                     <motion.div 
                       className="absolute top-0 left-0 w-full h-1 bg-orange-500 shadow-[0_0_15px_rgba(234,88,12,1)]"
@@ -1162,7 +1458,8 @@ export default function AdminPurchases() {
                         if (!value) return null;
                         const labels: Record<string, string> = {
                           marcaModelo: 'Marca/Modelo', placa: 'Placa', anoFabricacao: 'Ano Fab.', anoModelo: 'Ano Mod.',
-                          chassi: 'Chassi', renavam: 'Renavam', cor: 'Cor', vendedorNome: 'Nome Vendedor', vendedorCpfCnpj: 'CPF/CNPJ'
+                          chassi: 'Chassi', renavam: 'Renavam', cor: 'Cor', vendedorNome: 'Nome Vendedor', vendedorCpfCnpj: 'CPF/CNPJ',
+                          combustivel: 'Combustível', codigoCla: 'Código CLA', motor: 'Motor'
                         };
                         return (
                           <div key={key} className="flex justify-between items-center border-b border-zinc-800/50 pb-2">

@@ -1,5 +1,6 @@
 {
   "name": "FRANKLIN MOTOS - VENDAS",
   "description": "Sistema de controle de vendas de motos, cálculo financeiro e emissão de recibos para a Franklin Motos.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Moto } from '../types';
-import { Camera, X, Check, Sparkles, Loader2, GripVertical } from 'lucide-react';
+import { Camera, X, Check, Sparkles, Loader2, GripVertical, FileText, Eye } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -297,6 +297,40 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
     });
   };
 
+  const openDocument = (docString: string) => {
+    if (!docString) return;
+    if (docString.startsWith('data:application/pdf')) {
+      try {
+        const parts = docString.split(';base64,');
+        if (parts.length === 2) {
+          const contentType = parts[0].split(':')[1];
+          const raw = window.atob(parts[1]);
+          const rawLength = raw.length;
+          const uInt8Array = new Uint8Array(rawLength);
+          for (let i = 0; i < rawLength; ++i) {
+            uInt8Array[i] = raw.charCodeAt(i);
+          }
+          const blob = new Blob([uInt8Array], { type: contentType });
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+        } else {
+          const newWindow = window.open();
+          newWindow?.document.write(`<iframe src="${docString}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        }
+      } catch (e) {
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.location.href = docString;
+        }
+      }
+    } else {
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`<img src="${docString}" style="max-width:100%; max-height:100%; display:block; margin:auto;" />`);
+      }
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isDocument: boolean = false) => {
     const files = e.target.files;
     if (files && files.length > 0) {
@@ -305,9 +339,20 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
         return;
       }
 
-      const compressedImages = await Promise.all(
-        Array.from(files).map((file: File) => compressImage(file))
-      );
+      const uploadPromises = Array.from(files).map((file: File) => {
+        if (isDocument && file.type === "application/pdf") {
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              resolve(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+        return compressImage(file);
+      });
+
+      const compressedImages = await Promise.all(uploadPromises);
 
       setFormData(prev => ({
         ...prev,
@@ -484,7 +529,7 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
             <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Câmbio</label>
             <select
               name="cambio"
-              value={formData.cambio}
+              value={formData.cambio || 'MANUAL'}
               onChange={handleChange}
               className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white"
             >
@@ -497,7 +542,7 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
             <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Combustível</label>
             <select
               name="combustivel"
-              value={formData.combustivel}
+              value={formData.combustivel || 'FLEX'}
               onChange={handleChange}
               className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white"
             >
@@ -534,7 +579,7 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
           <textarea
             name="descricao"
             rows={6}
-            value={formData.descricao}
+            value={formData.descricao || ''}
             onChange={handleChange}
             placeholder="Descreva os detalhes da moto, histórico, revisões, etc."
             className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all text-white resize-none"
@@ -650,25 +695,66 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
         <div className="space-y-4 pt-6 border-t border-zinc-800">
           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Documentos Anexos (Somente Internos)</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {formData.documentos?.map((docImg, index) => (
-              <div key={index} className="aspect-square relative rounded-xl overflow-hidden border border-zinc-700 group bg-zinc-950">
-                <img src={docImg} alt={`Documento ${index + 1}`} className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removeImage(index, true)}
-                  className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ))}
+            {formData.documentos?.map((docImg, index) => {
+              const isPdf = typeof docImg === 'string' && docImg.startsWith('data:application/pdf');
+              return (
+                <div key={index} className="aspect-square relative rounded-xl overflow-hidden border border-zinc-700 group bg-zinc-950 flex flex-col justify-center items-center cursor-pointer hover:border-orange-500/50 transition-all shadow-md">
+                  {isPdf ? (
+                    <div 
+                      onClick={() => openDocument(docImg)}
+                      className="w-full h-full flex flex-col items-center justify-center p-4 bg-zinc-900 text-zinc-300 relative"
+                    >
+                      <FileText size={48} className="text-red-500 mb-2 animate-pulse" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-center text-zinc-400 max-w-full truncate px-2">Documento PDF</span>
+                      <span className="text-[9px] text-zinc-500 mt-1">Clique para abrir</span>
+                      
+                      {/* Hover action bar */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openDocument(docImg); }}
+                          className="p-2 bg-orange-600 hover:bg-orange-500 text-black rounded-lg transition-colors"
+                          title="Visualizar"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <img src={docImg} alt={`Documento ${index + 1}`} className="w-full h-full object-cover" />
+                      {/* Hover action bar */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openDocument(docImg)}
+                          className="p-2 bg-orange-600 hover:bg-orange-500 text-black rounded-lg transition-colors animate-fade-in"
+                          title="Visualizar"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeImage(index, true); }}
+                    className="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
             <label className="aspect-square rounded-xl border-2 border-dashed border-zinc-700 flex flex-col items-center justify-center text-zinc-500 hover:text-orange-500 hover:border-orange-500 transition-colors cursor-pointer bg-zinc-950/50">
               <Camera size={32} className="mb-2" />
               <span className="text-xs font-bold uppercase tracking-wider text-center px-2">Anexar Documento</span>
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/*,application/pdf"
                 onChange={(e) => handleImageUpload(e, true)}
                 className="hidden"
               />

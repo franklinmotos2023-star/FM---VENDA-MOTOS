@@ -13,7 +13,7 @@ import AcessorioList from './components/AcessorioList';
 import AcessorioForm from './components/AcessorioForm';
 import CartModal from './components/CartModal';
 import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench, MessageCircle } from 'lucide-react';
-import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, deleteDoc, updateDoc, increment, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, increment, handleFirestoreError, OperationType } from './firebase';
 
 const ScooterIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
   <svg 
@@ -79,7 +79,11 @@ export default function App() {
        const id = pathname.split('/').pop();
        if (motos.length > 0) {
          const m = motos.find(m => m.id === id);
-         if (m && (!m.arquivada || isAdmin) && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
+         if (m && (!m.arquivada || isAdmin)) {
+           if (!selectedMoto || selectedMoto.id !== id || JSON.stringify(selectedMoto) !== JSON.stringify(m)) {
+             setSelectedMoto(m);
+           }
+         }
        }
     }
     else if (pathname.includes('/editar') && pathname.startsWith('/motos')) {
@@ -87,7 +91,11 @@ export default function App() {
        const id = pathname.split('/').slice(-2, -1)[0]; // /motos/id/editar
        if (motos.length > 0) {
          const m = motos.find(m => m.id === id);
-         if (m && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
+         if (m) {
+           if (!selectedMoto || selectedMoto.id !== id || JSON.stringify(selectedMoto) !== JSON.stringify(m)) {
+             setSelectedMoto(m);
+           }
+         }
        }
     }
     else if (pathname.match(/^\/motos\/[^/]+$/)) {
@@ -95,7 +103,11 @@ export default function App() {
        const id = pathname.split('/').pop();
        if (motos.length > 0) {
          const m = motos.find(m => m.id === id);
-         if (m && (!m.arquivada || isAdmin) && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
+         if (m && (!m.arquivada || isAdmin)) {
+           if (!selectedMoto || selectedMoto.id !== id || JSON.stringify(selectedMoto) !== JSON.stringify(m)) {
+             setSelectedMoto(m);
+           }
+         }
        }
     }
     else if (pathname === '/acessorios') newView = 'acessorios';
@@ -341,8 +353,21 @@ export default function App() {
     try {
       if (currentView === 'edit' && selectedMoto) {
         await setDoc(doc(db, 'motos', selectedMoto.id), motoData);
+        // Sync 'arquivada' state to matching purchase record if placa exists
+        if (motoData.placa) {
+          const querySnapshot = await getDocs(collection(db, 'purchases'));
+          const matchingDoc = querySnapshot.docs.find(doc => doc.data().motoInfo?.placa === motoData.placa);
+          if (matchingDoc) {
+            await updateDoc(doc(db, 'purchases', matchingDoc.id), {
+              arquivada: motoData.arquivada || false
+            });
+          }
+        }
       } else {
-        await setDoc(doc(collection(db, 'motos')), motoData);
+        await setDoc(doc(collection(db, 'motos')), {
+          ...motoData,
+          arquivada: motoData.arquivada || false
+        });
       }
       navigate('/motos');
     } catch (error) {
@@ -794,7 +819,7 @@ export default function App() {
 
         {currentView === 'list' && adminTab === 'estoque' && (
           <MotoList
-            motos={isAdmin ? motos : motos.filter(m => !m.arquivada)}
+            motos={motos.filter(m => !m.arquivada)}
             onAddMoto={handleAddMoto}
             onFinance={handleFinance}
             isAdmin={isAdmin}

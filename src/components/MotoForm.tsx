@@ -97,7 +97,8 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
     cambio: initialData?.cambio || 'MANUAL',
     combustivel: initialData?.combustivel || 'FLEX',
     descricao: initialData?.descricao || '',
-    equipamentos: initialData?.equipamentos || []
+    equipamentos: initialData?.equipamentos || [],
+    arquivada: initialData?.arquivada || false
   });
 
   const [equipamentoInput, setEquipamentoInput] = useState('');
@@ -241,7 +242,11 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'anoFabricacao' || name === 'anoModelo' || name === 'precoAVista' || name === 'precoAntigo' ? Number(value) : value
+      [name]: name === 'arquivada'
+        ? value === 'true'
+        : name === 'anoFabricacao' || name === 'anoModelo' || name === 'precoAVista' || name === 'precoAntigo'
+          ? Number(value)
+          : value
     }));
   };
 
@@ -550,6 +555,21 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
               <option value="ÁLCOOL">ÁLCOOL</option>
               <option value="FLEX">FLEX</option>
               <option value="ELÉTRICO">ELÉTRICO</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider font-bold">Status de Arquivamento</label>
+            <select
+              name="arquivada"
+              value={formData.arquivada ? 'true' : 'false'}
+              onChange={handleChange}
+              className={`w-full px-4 py-3 bg-zinc-950 border rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-orange-600 outline-none transition-all font-black text-sm ${
+                formData.arquivada ? 'border-orange-500 text-orange-550 bg-orange-600/5' : 'border-zinc-800 text-white'
+              }`}
+            >
+              <option value="false">MOTO ATIVA NO ESTOQUE PÚBLICO</option>
+              <option value="true">MOTO ARQUIVADA (APENAS COMPRAS)</option>
             </select>
           </div>
         </div>

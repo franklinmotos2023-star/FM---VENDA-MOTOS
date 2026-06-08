@@ -53,7 +53,7 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
   };
 
   const isNmax = moto.marcaModelo?.toUpperCase().includes('NMAX');
-  const avistaDiscount = isNmax ? 0 : 500;
+  const avistaDiscount = isNmax ? 0 : 300;
 
   const handleCalculate = (e: React.FormEvent) => {
     e.preventDefault();

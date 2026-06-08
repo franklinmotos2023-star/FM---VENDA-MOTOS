@@ -168,6 +168,7 @@ export type PurchaseRecord = {
   custos?: CustoPurchase[];
   status: 'em_estoque' | 'vendida' | 'cancelada';
   isPublished?: boolean;
+  precoVendaSugerido?: number;
   arquivada?: boolean;
 };
 

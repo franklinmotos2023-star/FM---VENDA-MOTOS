@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, db, handleFirestoreError, OperationType, getDocs } from '../firebase';
-import { PurchaseRecord, PurchaseInstallment, CustoPurchase } from '../types';
+import { PurchaseRecord, PurchaseInstallment, CustoPurchase, Moto } from '../types';
 import { Plus, Search, Filter, Calendar, User, Phone, DollarSign, FileText, Trash2, Eye, Camera, X, CheckCircle2, Clock, Bike, MapPin, CreditCard, Info, Scan, Archive } from 'lucide-react';
 import PurchaseReceiptGenerator from './PurchaseReceiptGenerator';
 import { motion, AnimatePresence } from 'motion/react';
@@ -113,7 +113,11 @@ const compressBase64Image = (base64Str: string, maxDim = 800, quality = 0.5): Pr
   });
 };
 
-export default function AdminPurchases() {
+interface AdminPurchasesProps {
+  motos: Moto[];
+}
+
+export default function AdminPurchases({ motos }: AdminPurchasesProps) {
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -128,6 +132,12 @@ export default function AdminPurchases() {
   const [purchaseToDelete, setPurchaseToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionToConfirm, setActionToConfirm] = useState<'save' | 'publish' | null>(null);
+
+  // Inline Price Editing State
+  const [editingPricePurchaseId, setEditingPricePurchaseId] = useState<string | null>(null);
+  const [newPriceValue, setNewPriceValue] = useState<string>('');
+  const [editingPriceError, setEditingPriceError] = useState<string | null>(null);
+  const [updatingPrice, setUpdatingPrice] = useState<boolean>(false);
 
   // Scanner State
   const [isScanning, setIsScanning] = useState(false);
@@ -764,6 +774,57 @@ export default function AdminPurchases() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const handleStartEditPrice = (purchaseId: string, currentPrice: number) => {
+    setEditingPricePurchaseId(purchaseId);
+    setNewPriceValue((currentPrice - 500).toString());
+    setEditingPriceError(null);
+  };
+
+  const handlePriceInputValueChange = (valueStr: string, currentPrice: number) => {
+    setNewPriceValue(valueStr);
+    const val = parseFloat(valueStr);
+    if (isNaN(val) || val <= 0) {
+      setEditingPriceError('Digite um valor maior que zero.');
+    } else if (val >= currentPrice) {
+      setEditingPriceError(`O valor deve ser menor que o atual (${formatCurrency(currentPrice)}).`);
+    } else {
+      setEditingPriceError(null);
+    }
+  };
+
+  const handleSavePrice = async (purchase: PurchaseRecord, currentStockMoto: any) => {
+    const val = parseFloat(newPriceValue);
+    if (isNaN(val) || val <= 0) {
+      alert('Digite um valor válido.');
+      return;
+    }
+    if (val >= currentStockMoto.precoAVista) {
+      alert(`O novo valor deve ser obrigatoriamente menor que o valor atual (${formatCurrency(currentStockMoto.precoAVista)}).`);
+      return;
+    }
+    
+    setUpdatingPrice(true);
+    try {
+      const motoRef = doc(db, 'motos', currentStockMoto.id);
+      await updateDoc(motoRef, {
+        precoAntigo: currentStockMoto.precoAVista,
+        precoAVista: val
+      });
+
+      await updateDoc(doc(db, 'purchases', purchase.id!), {
+        precoVendaSugerido: val
+      });
+
+      setEditingPricePurchaseId(null);
+      alert('Preço à vista atualizado no estoque!');
+    } catch (error) {
+      console.error("Erro ao atualizar preco:", error);
+      alert('Erro ao salvar o preço no estoque.');
+    } finally {
+      setUpdatingPrice(false);
+    }
+  };
+
   const getCustoAcumulado = (purchase: Partial<PurchaseRecord> | PurchaseRecord) => {
     const extraCosts = purchase.custos?.reduce((acc, c) => acc + (c.valor || 0), 0) || 0;
     return extraCosts;
@@ -868,86 +929,145 @@ export default function AdminPurchases() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPurchases.map((purchase) => (
-            <div key={purchase.id} className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800 shadow-xl group hover:border-orange-600/50 transition-all">
-              <div className="aspect-video relative overflow-hidden">
-                <img 
-                  src={purchase.fotos[0] || 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=800'} 
-                  alt={purchase.motoInfo.marcaModelo}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-                <div className="absolute top-4 right-4 bg-orange-600 text-black px-3 py-1 rounded-md font-black text-xs shadow-lg">
-                  {purchase.motoInfo.placa}
-                </div>
-                <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-md text-white px-3 py-1 rounded-md font-bold text-[10px] uppercase tracking-widest border border-white/10">
-                  {new Date(purchase.dataCompra).toLocaleDateString('pt-BR')}
-                </div>
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-xl font-black text-white uppercase tracking-tight truncate flex-grow">{purchase.motoInfo.marcaModelo}</h3>
-                    {purchase.arquivada && (
-                      <span className="shrink-0 bg-orange-600/20 text-orange-500 border border-orange-500/30 px-2 py-0.5 rounded-md font-black text-[9px] tracking-widest uppercase">
-                        ARQUIVADA
-                      </span>
-                    )}
+          {filteredPurchases.map((purchase) => {
+            const matchingStockMoto = motos.find(m => m.placa === purchase.motoInfo.placa);
+            return (
+              <div key={purchase.id} className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800 shadow-xl group hover:border-orange-600/50 transition-all">
+                <div className="aspect-video relative overflow-hidden">
+                  <img 
+                    src={purchase.fotos[0] || 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=800'} 
+                    alt={purchase.motoInfo.marcaModelo}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute top-4 right-4 bg-orange-600 text-black px-3 py-1 rounded-md font-black text-xs shadow-lg">
+                    {purchase.motoInfo.placa}
                   </div>
-                  <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-                    <User size={10} className="text-orange-600" /> Vendedor: {purchase.vendedorNome}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800/50">
-                    <span className="block text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1">Custo da Moto</span>
-                    <span className="font-black text-white text-sm">{formatCurrency(getCustoAcumulado(purchase))}</span>
-                  </div>
-                  <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800/50">
-                    <span className="block text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1">Preço Sugerido</span>
-                    <span className="font-black text-orange-500 text-sm">{formatCurrency(getPrecoSugerido(purchase))}</span>
+                  <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-md text-white px-3 py-1 rounded-md font-bold text-[10px] uppercase tracking-widest border border-white/10">
+                    {new Date(purchase.dataCompra).toLocaleDateString('pt-BR')}
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={() => handleEdit(purchase)}
-                    className="p-3 bg-zinc-800 hover:bg-orange-600/20 text-zinc-500 hover:text-orange-500 rounded-xl transition-all border border-zinc-800"
-                    title="Editar Compra"
-                  >
-                    <Eye size={16} />
-                  </button>
-                  <button
-                    onClick={() => { setSelectedPurchase(purchase); setShowReceipt(true); }}
-                    className="flex-grow py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2"
-                  >
-                    <FileText size={14} /> Recibo
-                  </button>
-                  {purchase.isPublished && (
-                    <button
-                      onClick={() => handleToggleArchive(purchase)}
-                      className={`p-3 rounded-xl transition-all border ${
-                        purchase.arquivada
-                          ? 'bg-orange-600/20 text-orange-500 border-orange-600/30 hover:bg-orange-600/30 font-bold'
-                          : 'bg-zinc-800 hover:bg-orange-600/20 text-zinc-500 hover:text-orange-500 border-zinc-800'
-                      }`}
-                      title={purchase.arquivada ? "Desarquivar Moto (Voltar para o Estoque)" : "Arquivar Moto (Sair do Estoque Público)"}
-                    >
-                      <Archive size={16} />
-                    </button>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-xl font-black text-white uppercase tracking-tight truncate flex-grow">{purchase.motoInfo.marcaModelo}</h3>
+                      {purchase.arquivada && (
+                        <span className="shrink-0 bg-orange-600/20 text-orange-500 border border-orange-500/30 px-2 py-0.5 rounded-md font-black text-[9px] tracking-widest uppercase">
+                          ARQUIVADA
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
+                      <User size={10} className="text-orange-600" /> Vendedor: {purchase.vendedorNome}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800/50">
+                      <span className="block text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1">Custo da Moto</span>
+                      <span className="font-black text-white text-sm">{formatCurrency(getCustoAcumulado(purchase))}</span>
+                    </div>
+                    <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800/50">
+                      <span className="block text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1">Preço Sugerido</span>
+                      <span className="font-black text-orange-500 text-sm">{formatCurrency(getPrecoSugerido(purchase))}</span>
+                    </div>
+                  </div>
+
+                  {purchase.isPublished && matchingStockMoto && (
+                    <div className="bg-orange-600/5 p-4 rounded-xl border border-orange-600/20 space-y-3 mt-1 text-left">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-zinc-400 font-bold uppercase tracking-wider text-[9px]">Preço de Venda (Estoque):</span>
+                        <span className="text-orange-500 font-black text-xs">{formatCurrency(matchingStockMoto.precoAVista)}</span>
+                      </div>
+
+                      {editingPricePurchaseId === purchase.id ? (
+                        <div className="space-y-2 mt-2 bg-zinc-950 p-3 rounded-lg border border-zinc-800">
+                          <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest leading-normal">
+                            Novo Preço à Vista (Obrigatório menor que {formatCurrency(matchingStockMoto.precoAVista)}):
+                          </label>
+                          <div className="relative mt-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs font-mono">R$</span>
+                            <input 
+                              type="number"
+                              value={newPriceValue}
+                              onChange={(e) => handlePriceInputValueChange(e.target.value, matchingStockMoto.precoAVista)}
+                              placeholder="0.00"
+                              className="w-full pl-8 pr-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-white outline-none focus:border-orange-500"
+                            />
+                          </div>
+                          {editingPriceError && (
+                            <p className="text-[9px] font-medium text-red-500 leading-snug">{editingPriceError}</p>
+                          )}
+                          <div className="flex gap-2 justify-end pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditingPricePurchaseId(null)}
+                              disabled={updatingPrice}
+                              className="px-2 py-1 text-[9px] uppercase font-bold text-zinc-400 hover:text-white bg-zinc-800 rounded transition-all"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSavePrice(purchase, matchingStockMoto)}
+                              disabled={updatingPrice || !!editingPriceError}
+                              className="px-2 py-1 text-[9px] uppercase font-black text-black bg-orange-600 hover:bg-orange-500 rounded disabled:opacity-50 transition-all shadow-[0_0_10px_rgba(234,88,12,0.2)]"
+                            >
+                              {updatingPrice ? 'Salvando...' : 'Confirmar'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditPrice(purchase.id!, matchingStockMoto.precoAVista)}
+                          className="w-full py-1.5 text-[9px] uppercase font-black text-orange-400 bg-orange-600/10 hover:bg-orange-600/20 rounded border border-orange-500/20 text-center transition-all tracking-wider"
+                        >
+                          Alterar Valor à Vista (Venda)
+                        </button>
+                      )}
+                    </div>
                   )}
-                  <button
-                    className="p-3 bg-zinc-800 hover:bg-red-600/20 text-zinc-500 hover:text-red-500 rounded-xl transition-all border border-zinc-800"
-                    onClick={() => setPurchaseToDelete(purchase.id!)}
-                    title="Excluir Compra"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+
+                  <div className="flex gap-2 pt-2 border-t border-zinc-800/40">
+                    <button
+                      onClick={() => handleEdit(purchase)}
+                      className="p-3 bg-zinc-800 hover:bg-orange-600/20 text-zinc-500 hover:text-orange-500 rounded-xl transition-all border border-zinc-800"
+                      title="Editar Compra"
+                    >
+                      <Eye size={16} />
+                    </button>
+                    <button
+                      onClick={() => { setSelectedPurchase(purchase); setShowReceipt(true); }}
+                      className="flex-grow py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2"
+                    >
+                      <FileText size={14} /> Recibo
+                    </button>
+                    {purchase.isPublished && (
+                      <button
+                        onClick={() => handleToggleArchive(purchase)}
+                        className={`p-3 rounded-xl transition-all border ${
+                          purchase.arquivada
+                            ? 'bg-orange-600/20 text-orange-500 border-orange-600/30 hover:bg-orange-600/30 font-bold'
+                            : 'bg-zinc-800 hover:bg-orange-600/20 text-zinc-500 hover:text-orange-500 border-zinc-800'
+                        }`}
+                        title={purchase.arquivada ? "Desarquivar Moto (Voltar para o Estoque)" : "Arquivar Moto (Sair do Estoque Público)"}
+                      >
+                        <Archive size={16} />
+                      </button>
+                    )}
+                    <button
+                      className="p-3 bg-zinc-800 hover:bg-red-600/20 text-zinc-500 hover:text-red-500 rounded-xl transition-all border border-zinc-800"
+                      onClick={() => setPurchaseToDelete(purchase.id!)}
+                      title="Excluir Compra"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

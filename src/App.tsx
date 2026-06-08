@@ -132,7 +132,7 @@ export default function App() {
     if (newView !== currentView) {
       setCurrentView(newView);
     }
-  }, [pathname, motos, acessorios]);
+  }, [pathname, motos, acessorios, selectedMoto, selectedAcessorio, isAdmin, currentView]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -359,7 +359,8 @@ export default function App() {
           const matchingDoc = querySnapshot.docs.find(doc => doc.data().motoInfo?.placa === motoData.placa);
           if (matchingDoc) {
             await updateDoc(doc(db, 'purchases', matchingDoc.id), {
-              arquivada: motoData.arquivada || false
+              arquivada: motoData.arquivada || false,
+              precoVendaSugerido: motoData.precoAVista || 0
             });
           }
         }
@@ -837,7 +838,7 @@ export default function App() {
         )}
 
         {currentView === 'list' && adminTab === 'compra' && isAdmin && (
-          <AdminPurchases />
+          <AdminPurchases motos={motos} />
         )}
 
         {(currentView === 'add' || currentView === 'edit') && (

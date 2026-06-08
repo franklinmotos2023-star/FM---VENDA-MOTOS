@@ -44,6 +44,8 @@ export function useAcessoriosConfig() {
         // Initialize if not exists
         setDoc(docRef, { marcas: defaultMarcas, motos: defaultMotos, categorias: [], whatsappNumber: '' }).catch(err => console.error(err));
       }
+    }, (error) => {
+      console.warn("Firestore error on 'acessoriosConfig' snapshot listener:", error);
     });
 
     return () => unsubscribe();

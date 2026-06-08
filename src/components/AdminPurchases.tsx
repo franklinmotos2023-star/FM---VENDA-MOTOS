@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, db, handleFirestoreError, OperationType, getDocs } from '../firebase';
 import { PurchaseRecord, PurchaseInstallment, CustoPurchase } from '../types';
-import { Plus, Search, Filter, Calendar, User, Phone, DollarSign, FileText, Trash2, Eye, Camera, X, CheckCircle2, Clock, Bike, MapPin, CreditCard, Info, Scan } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, User, Phone, DollarSign, FileText, Trash2, Eye, Camera, X, CheckCircle2, Clock, Bike, MapPin, CreditCard, Info, Scan, Archive } from 'lucide-react';
 import PurchaseReceiptGenerator from './PurchaseReceiptGenerator';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -184,7 +184,8 @@ export default function AdminPurchases() {
         setPurchases(purchasesData);
         setLoading(false);
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'purchases');
+        console.warn("Firestore error listing purchases (quota exceeded?):", error);
+        setPurchases([]);
         setLoading(false);
       });
       
@@ -221,6 +222,7 @@ export default function AdminPurchases() {
               documentos: moto.documentos || [],
               status: 'em_estoque',
               isPublished: true,
+              arquivada: moto.arquivada || false,
               observacoes: 'Importado de moto existente no estoque.'
             };
             await addDoc(collection(db, 'purchases'), purchaseData);
@@ -386,6 +388,32 @@ export default function AdminPurchases() {
     }));
   };
 
+  const handleToggleArchive = async (purchase: PurchaseRecord) => {
+    try {
+      const newArchivedState = !purchase.arquivada;
+      
+      // Update purchase record
+      await updateDoc(doc(db, 'purchases', purchase.id!), {
+        arquivada: newArchivedState
+      });
+
+      // Update matching stock motorcycle as well
+      const placa = purchase.motoInfo.placa;
+      if (placa) {
+        const querySnapshot = await getDocs(collection(db, 'motos'));
+        const matchingDoc = querySnapshot.docs.find(doc => doc.data().placa === placa);
+        if (matchingDoc) {
+          await updateDoc(doc(db, 'motos', matchingDoc.id), {
+            arquivada: newArchivedState
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error toggling archive status:", err);
+      alert("Erro ao alterar o status de arquivamento da moto.");
+    }
+  };
+
   const handleEdit = (purchase: PurchaseRecord) => {
     setActiveTab('compra');
     setFormData({
@@ -514,7 +542,8 @@ export default function AdminPurchases() {
         fotos: compressedFotos,
         documentos: compressedDocumentos,
         custos: compressedCustos,
-        isPublished: publish || !!formData.isPublished
+        isPublished: publish || !!formData.isPublished,
+        arquivada: formData.arquivada !== undefined ? formData.arquivada : false
       });
 
       if (editingPurchaseId) {
@@ -551,7 +580,8 @@ export default function AdminPurchases() {
           combustivel: formData.motoInfo.combustivel,
           codigoCla: formData.motoInfo.codigoCla,
           motor: formData.motoInfo.motor,
-          dataEntrada: new Date().toISOString()
+          dataEntrada: new Date().toISOString(),
+          arquivada: false
         });
         
         try {
@@ -856,7 +886,14 @@ export default function AdminPurchases() {
 
               <div className="p-6 space-y-4">
                 <div>
-                  <h3 className="text-xl font-black text-white uppercase tracking-tight truncate">{purchase.motoInfo.marcaModelo}</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-xl font-black text-white uppercase tracking-tight truncate flex-grow">{purchase.motoInfo.marcaModelo}</h3>
+                    {purchase.arquivada && (
+                      <span className="shrink-0 bg-orange-600/20 text-orange-500 border border-orange-500/30 px-2 py-0.5 rounded-md font-black text-[9px] tracking-widest uppercase">
+                        ARQUIVADA
+                      </span>
+                    )}
+                  </div>
                   <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
                     <User size={10} className="text-orange-600" /> Vendedor: {purchase.vendedorNome}
                   </p>
@@ -887,6 +924,19 @@ export default function AdminPurchases() {
                   >
                     <FileText size={14} /> Recibo
                   </button>
+                  {purchase.isPublished && (
+                    <button
+                      onClick={() => handleToggleArchive(purchase)}
+                      className={`p-3 rounded-xl transition-all border ${
+                        purchase.arquivada
+                          ? 'bg-orange-600/20 text-orange-500 border-orange-600/30 hover:bg-orange-600/30 font-bold'
+                          : 'bg-zinc-800 hover:bg-orange-600/20 text-zinc-500 hover:text-orange-500 border-zinc-800'
+                      }`}
+                      title={purchase.arquivada ? "Desarquivar Moto (Voltar para o Estoque)" : "Arquivar Moto (Sair do Estoque Público)"}
+                    >
+                      <Archive size={16} />
+                    </button>
+                  )}
                   <button
                     className="p-3 bg-zinc-800 hover:bg-red-600/20 text-zinc-500 hover:text-red-500 rounded-xl transition-all border border-zinc-800"
                     onClick={() => setPurchaseToDelete(purchase.id!)}

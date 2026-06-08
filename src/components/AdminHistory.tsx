@@ -37,7 +37,8 @@ export default function AdminHistory({ motos }: AdminHistoryProps) {
       setSales(salesData);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'sales');
+      console.warn("Firestore error listing sales (quota exceeded?):", error);
+      setSales([]);
       setLoading(false);
     });
 
@@ -46,7 +47,8 @@ export default function AdminHistory({ motos }: AdminHistoryProps) {
       const acessorioSalesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AcessorioSaleRecord));
       setAcessorioSales(acessorioSalesData);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'acessorio_sales');
+      console.warn("Firestore error listing acessorio_sales (quota exceeded?):", error);
+      setAcessorioSales([]);
     });
 
     return () => {

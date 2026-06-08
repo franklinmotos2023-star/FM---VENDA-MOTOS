@@ -47,7 +47,11 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
   return (
     <div 
       onClick={() => onSelect(moto)}
-      className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800 flex flex-col hover:border-orange-600/50 transition-colors group shadow-xl relative cursor-pointer"
+      className={`bg-zinc-900 rounded-2xl overflow-hidden border flex flex-col hover:border-orange-600/50 transition-all group shadow-xl relative cursor-pointer ${
+        moto.arquivada 
+          ? 'opacity-65 border-zinc-950 grayscale-[50%] hover:grayscale-0 hover:opacity-100' 
+          : 'border-zinc-800'
+      }`}
     >
       {isAdmin && (
         <div className="absolute top-4 left-4 flex gap-2 z-10">
@@ -118,7 +122,12 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
             Sem foto
           </div>
         )}
-        <div className="absolute top-4 right-4 bg-orange-600 text-black px-3 py-1 rounded-md font-black text-sm shadow-lg">
+        {moto.arquivada && (
+          <div className="absolute top-4 right-20 bg-zinc-950/90 text-orange-500 border border-orange-500/30 px-2 py-1 rounded-md font-black text-[10px] tracking-widest uppercase backdrop-blur-sm z-10 shadow-lg">
+            Arquivada
+          </div>
+        )}
+        <div className="absolute top-4 right-4 bg-orange-600 text-black px-3 py-1 rounded-md font-black text-sm shadow-lg z-10">
           {moto.anoModelo}
         </div>
       </div>

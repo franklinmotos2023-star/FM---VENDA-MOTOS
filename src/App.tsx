@@ -79,7 +79,7 @@ export default function App() {
        const id = pathname.split('/').pop();
        if (motos.length > 0) {
          const m = motos.find(m => m.id === id);
-         if (m && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
+         if (m && (!m.arquivada || isAdmin) && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
        }
     }
     else if (pathname.includes('/editar') && pathname.startsWith('/motos')) {
@@ -95,7 +95,7 @@ export default function App() {
        const id = pathname.split('/').pop();
        if (motos.length > 0) {
          const m = motos.find(m => m.id === id);
-         if (m && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
+         if (m && (!m.arquivada || isAdmin) && (!selectedMoto || selectedMoto.id !== id)) setSelectedMoto(m);
        }
     }
     else if (pathname === '/acessorios') newView = 'acessorios';
@@ -130,6 +130,58 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const initialMotos: Moto[] = [
+      {
+        id: 'pnn8564',
+        placa: 'PNN8564',
+        marcaModelo: 'YAMAHA/NMAX',
+        anoFabricacao: 2018,
+        anoModelo: 2018,
+        quilometragem: '30.000km',
+        precoAVista: 15000,
+        statusRevisao: 'REVISADA',
+        statusDut: 'DUT INCLUSO',
+        fotos: ['https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&q=80&w=800']
+      },
+      {
+        id: 'pnb3196',
+        placa: 'PNB3196',
+        marcaModelo: 'HONDA/PCX 150',
+        anoFabricacao: 2015,
+        anoModelo: 2015,
+        quilometragem: '45.000km',
+        precoAVista: 12000,
+        statusRevisao: 'REVISADA',
+        statusDut: 'DUT INCLUSO',
+        fotos: ['https://images.unsplash.com/photo-1519750157634-b6d493a0f77c?auto=format&fit=crop&q=80&w=800']
+      },
+      {
+        id: 'poh2997',
+        placa: 'POH2997',
+        marcaModelo: 'HONDA/CG 160',
+        anoFabricacao: 2018,
+        anoModelo: 2018,
+        quilometragem: '25.000km',
+        precoAVista: 13500,
+        statusRevisao: 'REVISADA',
+        statusDut: 'DUT INCLUSO',
+        fotos: ['https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=800']
+      }
+    ];
+
+    const initialAcessorios: Acessorio[] = [
+      {
+        id: 'fallback-capacete',
+        nome: 'Capacete Pro',
+        aplicacao: 'Geral',
+        descricao: 'Capacete de alta segurança e ventilação',
+        preco: 180,
+        emPromocao: false,
+        estoque: 10,
+        fotos: []
+      }
+    ];
+
     const q = query(collection(db, 'motos'), orderBy('marcaModelo'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const motosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Moto));
@@ -137,51 +189,23 @@ export default function App() {
       
       // Seeding logic: if admin and no motos, add initial ones
       if (isAdmin && motosData.length === 0) {
-        const initialMotos = [
-          {
-            placa: 'PNN8564',
-            marcaModelo: 'YAMAHA/NMAX',
-            anoFabricacao: 2018,
-            anoModelo: 2018,
-            quilometragem: '30.000km',
-            precoAVista: 15000,
-            statusRevisao: 'REVISADA',
-            statusDut: 'DUT INCLUSO',
-            fotos: ['https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&q=80&w=800']
-          },
-          {
-            placa: 'PNB3196',
-            marcaModelo: 'HONDA/PCX 150',
-            anoFabricacao: 2015,
-            anoModelo: 2015,
-            quilometragem: '45.000km',
-            precoAVista: 12000,
-            statusRevisao: 'REVISADA',
-            statusDut: 'DUT INCLUSO',
-            fotos: ['https://images.unsplash.com/photo-1519750157634-b6d493a0f77c?auto=format&fit=crop&q=80&w=800']
-          },
-          {
-            placa: 'POH2997',
-            marcaModelo: 'HONDA/CG 160',
-            anoFabricacao: 2018,
-            anoModelo: 2018,
-            quilometragem: '25.000km',
-            precoAVista: 13500,
-            statusRevisao: 'REVISADA',
-            statusDut: 'DUT INCLUSO',
-            fotos: ['https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=800']
-          }
-        ];
         initialMotos.forEach(async (moto) => {
-          await setDoc(doc(collection(db, 'motos')), moto);
+          const { id, ...data } = moto;
+          await setDoc(doc(collection(db, 'motos')), data);
         });
       }
+    }, (error) => {
+      console.warn("Firestore error on 'motos' snapshot listener, using fallback data:", error);
+      setMotos(initialMotos);
     });
 
     const qAcessorios = query(collection(db, 'acessorios'), orderBy('nome'));
     const unsubscribeAcessorios = onSnapshot(qAcessorios, (snapshot) => {
       const acessoriosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Acessorio));
       setAcessorios(acessoriosData);
+    }, (error) => {
+      console.warn("Firestore error on 'acessorios' snapshot listener, using fallback data:", error);
+      setAcessorios(initialAcessorios);
     });
 
     return () => {
@@ -770,7 +794,7 @@ export default function App() {
 
         {currentView === 'list' && adminTab === 'estoque' && (
           <MotoList
-            motos={motos}
+            motos={isAdmin ? motos : motos.filter(m => !m.arquivada)}
             onAddMoto={handleAddMoto}
             onFinance={handleFinance}
             isAdmin={isAdmin}

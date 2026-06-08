@@ -47,6 +47,7 @@ service cloud.firestore {
              data.anoModelo is int &&
              data.precoAVista is number && data.precoAVista >= 0 &&
              (!('precoAntigo' in data) || data.precoAntigo is number) &&
+             (!('arquivada' in data) || data.arquivada is bool) &&
              (!('cambio' in data) || data.cambio is string) &&
              (!('combustivel' in data) || data.combustivel is string) &&
              (!('descricao' in data) || data.descricao is string) &&
@@ -92,6 +93,7 @@ service cloud.firestore {
              data.entrada is number && data.entrada >= 0 &&
              data.valorFinanciado is number && data.valorFinanciado >= 0 &&
              data.dataCompra is string &&
+             (!('arquivada' in data) || data.arquivada is bool) &&
              (!('vendedorTelefone' in data) || data.vendedorTelefone is string) &&
              (!('vendedorEndereco' in data) || data.vendedorEndereco is string) &&
              (!('parcelas' in data) || data.parcelas is list) &&

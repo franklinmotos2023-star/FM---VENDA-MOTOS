@@ -52,6 +52,9 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const isNmax = moto.marcaModelo?.toUpperCase().includes('NMAX');
+  const avistaDiscount = isNmax ? 0 : 500;
+
   const handleCalculate = (e: React.FormEvent) => {
     e.preventDefault();
     if (paymentMethod !== 'cartao') return;
@@ -140,8 +143,8 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
     if (paymentMethod === 'avista') {
       message += `- Pagamento: À Vista\n` +
         `- Valor Original: ${formatCurrency(moto.precoAVista)}\n` +
-        `- Desconto: R$ 500,00\n` +
-        `- Valor Final: ${formatCurrency(moto.precoAVista - 500)}\n\n`;
+        `- Desconto: ${formatCurrency(avistaDiscount)}\n` +
+        `- Valor Final: ${formatCurrency(moto.precoAVista - avistaDiscount)}\n\n`;
     } else if (paymentMethod === 'financiamento') {
       message += `- Pagamento: Financiamento Bancário\n` +
         `- Banco: ${banco}\n` +
@@ -174,10 +177,10 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
           telefone: '-',
           email: '-',
           cep: '-',
-          valorVenda: paymentMethod === 'avista' ? moto.precoAVista - 500 : (resultado?.valorFinal || moto.precoAVista),
-          entrada: paymentMethod === 'avista' ? moto.precoAVista - 500 : (resultado?.entrada || 0),
+          valorVenda: paymentMethod === 'avista' ? moto.precoAVista - avistaDiscount : (resultado?.valorFinal || moto.precoAVista),
+          entrada: paymentMethod === 'avista' ? moto.precoAVista - avistaDiscount : (resultado?.entrada || 0),
           parcelas: paymentMethod === 'avista' ? 1 : (resultado?.parcelas || 1),
-          valorParcela: paymentMethod === 'avista' ? moto.precoAVista - 500 : (resultado?.valorParcela || 0),
+          valorParcela: paymentMethod === 'avista' ? moto.precoAVista - avistaDiscount : (resultado?.valorParcela || 0),
           dataVenda: new Date().toISOString(),
           vendedorUid: 'admin',
           status: 'pendente',
@@ -226,10 +229,10 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
         ...(buyerData.cep ? { cep: buyerData.cep } : {}),
         ...(buyerData.dataNascimento ? { dataNascimento: buyerData.dataNascimento } : {}),
         ...(buyerData.possuiCnh !== null ? { possuiCnh: buyerData.possuiCnh } : {}),
-        valorVenda: paymentMethod === 'avista' ? moto.precoAVista - 500 : (resultado?.valorFinal || moto.precoAVista),
-        entrada: paymentMethod === 'avista' ? moto.precoAVista - 500 : (resultado?.entrada || 0),
+        valorVenda: paymentMethod === 'avista' ? moto.precoAVista - avistaDiscount : (resultado?.valorFinal || moto.precoAVista),
+        entrada: paymentMethod === 'avista' ? moto.precoAVista - avistaDiscount : (resultado?.entrada || 0),
         parcelas: paymentMethod === 'avista' ? 1 : (resultado?.parcelas || 1),
-        valorParcela: paymentMethod === 'avista' ? moto.precoAVista - 500 : (resultado?.valorParcela || 0),
+        valorParcela: paymentMethod === 'avista' ? moto.precoAVista - avistaDiscount : (resultado?.valorParcela || 0),
         dataVenda: new Date().toISOString(),
         vendedorUid: 'cliente',
         status: 'pendente',
@@ -431,13 +434,15 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
                     <span className="text-zinc-400">Pagamento:</span>
                     <span className="text-white font-bold">À Vista</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Desconto:</span>
-                    <span className="text-green-500 font-bold">- R$ 500,00</span>
-                  </div>
+                  {avistaDiscount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-400">Desconto:</span>
+                      <span className="text-green-500 font-bold">- {formatCurrency(avistaDiscount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm pt-2 border-t border-zinc-800">
                     <span className="text-zinc-400">Total:</span>
-                    <span className="text-white font-black text-lg">{formatCurrency(moto.precoAVista - 500)}</span>
+                    <span className="text-white font-black text-lg">{formatCurrency(moto.precoAVista - avistaDiscount)}</span>
                   </div>
                 </>
               )}
@@ -623,21 +628,33 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
               <div className="bg-green-600/10 border border-green-600/30 p-6 rounded-2xl">
                 <h3 className="text-lg font-black text-green-500 uppercase tracking-wider mb-4">Benefícios do Pagamento à Vista</h3>
                 <ul className="space-y-3 text-sm text-zinc-300">
-                  <li className="flex items-center gap-2"><CheckCircle2 size={16} className="text-green-500" /> Desconto de R$ 500,00 no valor total</li>
+                  {avistaDiscount > 0 && (
+                    <li className="flex items-center gap-2"><CheckCircle2 size={16} className="text-green-500" /> Desconto de {formatCurrency(avistaDiscount)} no valor total</li>
+                  )}
                   <li className="flex items-center gap-2"><CheckCircle2 size={16} className="text-green-500" /> Livre de taxa da loja</li>
                   <li className="flex items-center gap-2"><CheckCircle2 size={16} className="text-green-500" /> Negociação à parte do DUT</li>
                 </ul>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800">
-                  <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Valor Original</h4>
-                  <p className="text-2xl font-black text-zinc-400 line-through">{formatCurrency(moto.precoAVista)}</p>
-                </div>
-                <div className="bg-orange-600/10 p-6 rounded-2xl border border-orange-600/30">
-                  <h4 className="text-xs font-bold text-orange-500 uppercase tracking-widest mb-2">Valor à Vista</h4>
-                  <p className="text-3xl font-black text-white">{formatCurrency(moto.precoAVista - 500)}</p>
-                </div>
+                {avistaDiscount > 0 ? (
+                  <>
+                    <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800">
+                      <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Valor Original</h4>
+                      <p className="text-2xl font-black text-zinc-400 line-through">{formatCurrency(moto.precoAVista)}</p>
+                    </div>
+                    <div className="bg-orange-600/10 p-6 rounded-2xl border border-orange-600/30">
+                      <h4 className="text-xs font-bold text-orange-500 uppercase tracking-widest mb-2">Valor à Vista</h4>
+                      <p className="text-3xl font-black text-white">{formatCurrency(moto.precoAVista - avistaDiscount)}</p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="col-span-2 bg-orange-600/10 p-6 rounded-2xl border border-orange-600/30 text-center">
+                    <h4 className="text-xs font-bold text-orange-500 uppercase tracking-widest mb-2">Valor à Vista</h4>
+                    <p className="text-3xl font-black text-white">{formatCurrency(moto.precoAVista)}</p>
+                    <p className="text-xs text-zinc-400 mt-2">Nesta moto não se aplica o desconto de pagamento à vista.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

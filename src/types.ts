@@ -25,6 +25,7 @@ export type Moto = {
   descricao?: string;
   equipamentos?: string[];
   planos?: PlanoFinanceiro[];
+  arquivada?: boolean;
 };
 
 export type SaleData = {
@@ -167,6 +168,7 @@ export type PurchaseRecord = {
   custos?: CustoPurchase[];
   status: 'em_estoque' | 'vendida' | 'cancelada';
   isPublished?: boolean;
+  arquivada?: boolean;
 };
 
 export type Acessorio = {

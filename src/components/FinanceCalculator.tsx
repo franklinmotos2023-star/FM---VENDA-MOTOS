@@ -1,8 +1,57 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Moto, SaleData, SaleRecord } from '../types';
-import { Calculator, ArrowRight, CheckCircle2, Info, MessageCircle, User, CreditCard, MapPin, Phone } from 'lucide-react';
+import { Calculator, ArrowRight, CheckCircle2, Info, MessageCircle, User, CreditCard, MapPin, Phone, Printer, FileDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, collection, setDoc, doc } from '../firebase';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+
+const inlineAllStyles = (source: HTMLElement, target: HTMLElement) => {
+  const sourceRootStyle = window.getComputedStyle(source);
+  for (let i = 0; i < sourceRootStyle.length; i++) {
+    const propName = sourceRootStyle[i];
+    if (propName.startsWith('--')) continue; // Skip custom CSS variables/properties
+    
+    let val = sourceRootStyle.getPropertyValue(propName);
+    if (val.includes('oklch')) {
+      if (propName === 'color') val = '#000000';
+      else if (propName.includes('background')) val = '#ffffff';
+      else if (propName.includes('border')) val = '#e4e4e7';
+      else continue;
+    }
+    
+    target.style.setProperty(propName, val, sourceRootStyle.getPropertyPriority(propName));
+  }
+
+  const sourceElements = Array.from(source.querySelectorAll('*'));
+  const targetElements = Array.from(target.querySelectorAll('*'));
+
+  for (let i = 0; i < sourceElements.length; i++) {
+    const srcEl = sourceElements[i] as HTMLElement;
+    const tgtEl = targetElements[i] as HTMLElement;
+    if (srcEl && tgtEl) {
+      const computed = window.getComputedStyle(srcEl);
+      for (let j = 0; j < computed.length; j++) {
+        const propName = computed[j];
+        if (propName.startsWith('--')) continue; // Skip custom CSS variables/properties
+        
+        let val = computed.getPropertyValue(propName);
+        if (val.includes('oklch')) {
+          if (propName === 'color') val = '#000000';
+          else if (propName.includes('background')) val = '#ffffff';
+          else if (propName.includes('border')) val = '#e4e4e7';
+          else continue;
+        }
+        
+        tgtEl.style.setProperty(
+          propName,
+          val,
+          computed.getPropertyPriority(propName)
+        );
+      }
+    }
+  }
+};
 
 interface FinanceCalculatorProps {
   moto: Moto;
@@ -50,6 +99,208 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+
+  const simulationReceiptRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const handlePrintSimulation = () => {
+    if (!simulationReceiptRef.current) {
+      alert("Elemento de simulação não encontrado para impressão.");
+      return;
+    }
+    const originalTitle = document.title;
+    const documentTitle = `Simulacao-FranklinMotos-${moto.marcaModelo.replace(/\s+/g, '-').toLowerCase()}`;
+    document.title = documentTitle;
+
+    // Create a temporary hidden iframe for clean printing
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const docStream = iframe.contentWindow?.document;
+    if (docStream) {
+      docStream.open();
+      
+      const clonedReceipt = simulationReceiptRef.current.cloneNode(true) as HTMLElement;
+      inlineAllStyles(simulationReceiptRef.current, clonedReceipt);
+
+      // Reset print sizes for clean A4 fit
+      clonedReceipt.style.width = '100%';
+      clonedReceipt.style.height = 'auto';
+      clonedReceipt.style.minHeight = '0';
+      clonedReceipt.style.boxShadow = 'none';
+      clonedReceipt.style.margin = '0';
+      clonedReceipt.style.padding = '10mm';
+      clonedReceipt.style.boxSizing = 'border-box';
+      clonedReceipt.style.backgroundColor = '#ffffff';
+
+      docStream.write(`
+        <html>
+          <head>
+            <title>${documentTitle}</title>
+            <meta charset="utf-8" />
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                background: white;
+                color: black;
+                font-family: 'Inter', sans-serif;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              @page {
+                size: A4;
+                margin: 0;
+              }
+            </style>
+          </head>
+          <body>
+            ${clonedReceipt.outerHTML}
+          </body>
+        </html>
+      `);
+      docStream.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (e) {
+          console.error("Erro ao imprimir no iframe:", e);
+          window.print();
+        } finally {
+          document.body.removeChild(iframe);
+          document.title = originalTitle;
+        }
+      }, 500);
+    } else {
+      window.print();
+      document.title = originalTitle;
+    }
+  };
+
+  const handleDownloadSimulationPdf = async () => {
+    const element = simulationReceiptRef.current;
+    if (!element) {
+      alert("Elemento de simulação não encontrado para gerar PDF.");
+      return;
+    }
+
+    setIsDownloading(true);
+    setPdfError(null);
+
+    const documentTitle = `simulacao-franklinmotos-${moto.marcaModelo.replace(/\s+/g, '-').toLowerCase()}`;
+
+    // Create a temporary hidden iframe to completely isolate html2canvas from parent document's styles (the Tailwind OKLCH variables).
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    try {
+      const iframeDoc = iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        throw new Error("Não foi possível acessar o documento do iframe para geração.");
+      }
+
+      const clonedReceipt = element.cloneNode(true) as HTMLElement;
+      inlineAllStyles(element, clonedReceipt);
+
+      // Force proper ID, layout and white background
+      clonedReceipt.id = 'simulation-receipt-content';
+      clonedReceipt.style.width = '794px';
+      clonedReceipt.style.height = '1123px';
+      clonedReceipt.style.padding = '40px';
+      clonedReceipt.style.boxSizing = 'border-box';
+      clonedReceipt.style.backgroundColor = '#ffffff';
+      clonedReceipt.style.color = '#000000';
+      clonedReceipt.style.display = 'flex';
+      clonedReceipt.style.flexDirection = 'column';
+      clonedReceipt.style.justifyContent = 'space-between';
+
+      iframeDoc.open();
+      iframeDoc.write(`
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                background: white;
+                color: black;
+                font-family: 'Inter', sans-serif;
+              }
+            </style>
+          </head>
+          <body>
+            <div id="capture-container"></div>
+          </body>
+        </html>
+      `);
+      iframeDoc.close();
+
+      const container = iframeDoc.getElementById('capture-container');
+      if (container) {
+        container.appendChild(clonedReceipt);
+      }
+
+      // Small delay to ensure styles and layouts are resolved inside the iframe
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const elementToCapture = iframeDoc.getElementById('simulation-receipt-content') || clonedReceipt;
+
+      const canvas = await html2canvas(elementToCapture, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
+        windowHeight: 1123,
+        scrollX: 0,
+        scrollY: 0,
+        window: iframe.contentWindow || window,
+        document: iframeDoc
+      } as any);
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${documentTitle}.pdf`);
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      setPdfError("Erro ao gerar PDF. Tente usar a opção 'Imprimir Simulação' e selecione 'Salvar como PDF'.");
+    } finally {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+      setIsDownloading(false);
+    }
   };
 
   const isNmax = moto.marcaModelo?.toUpperCase().includes('NMAX');
@@ -1027,14 +1278,43 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
                 )}
               </div>
 
-              <div className="p-8 bg-green-800/40 flex items-center justify-center">
+              <div className="p-8 bg-green-800/40 flex flex-col justify-center gap-4">
                 <button
                   onClick={handleConfirmAction}
-                  className="w-full py-5 bg-white text-green-700 rounded-xl font-black text-lg hover:bg-green-50 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] flex items-center justify-center gap-3 uppercase tracking-wider"
+                  className="w-full py-4 bg-white text-green-700 rounded-xl font-black text-lg hover:bg-green-50 transition-all shadow-lg hover:shadow-xl hover:scale-[1.01] flex items-center justify-center gap-3 uppercase tracking-wider"
                 >
                   {isAdmin ? 'Aprovar e Gerar Recibo' : 'Selecionar Proposta'}
-                  <ArrowRight size={24} />
+                  <ArrowRight size={20} />
                 </button>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={handlePrintSimulation}
+                    className="py-3 bg-green-700/50 hover:bg-green-700 text-white rounded-xl font-bold transition-all flex justify-center items-center gap-2 uppercase tracking-wider text-xs border border-green-500/30"
+                  >
+                    <Printer size={16} />
+                    Imprimir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSimulationPdf}
+                    disabled={isDownloading}
+                    className="py-3 bg-zinc-900/50 hover:bg-zinc-900 text-white rounded-xl font-bold transition-all flex justify-center items-center gap-2 uppercase tracking-wider text-xs border border-zinc-800 disabled:opacity-50"
+                  >
+                    {isDownloading ? (
+                      <span className="animate-pulse">Gerando...</span>
+                    ) : (
+                      <>
+                        <FileDown size={16} />
+                        Baixar PDF
+                      </>
+                    )}
+                  </button>
+                </div>
+                {pdfError && (
+                  <p className="text-[10px] text-orange-200 font-medium text-center">{pdfError}</p>
+                )}
               </div>
             </div>
           </motion.div>
@@ -1137,6 +1417,223 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
           </motion.div>
         </div>
       )}
+
+      {/* Hidden layout for PDF and Print simulations */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        <div 
+          ref={simulationReceiptRef}
+          id="simulation-receipt-content"
+          className="w-[794px] h-[1123px] p-[40px] bg-white text-black font-sans flex flex-col justify-between"
+          style={{ boxSizing: 'border-box', backgroundColor: '#ffffff', color: '#000000' }}
+        >
+          {/* Header */}
+          <div>
+            <div className="flex justify-between items-start border-b-2 border-zinc-900 pb-6 mb-6" style={{ borderBottom: '2px solid #18181b', paddingBottom: '24px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                <h1 className="text-3xl font-black tracking-tight text-zinc-900" style={{ fontSize: '30px', fontWeight: '900', color: '#18181b', margin: 0 }}>FRANKLIN MOTOS</h1>
+                <p className="text-xs font-mono font-bold text-zinc-500 uppercase tracking-widest mt-1" style={{ fontSize: '12px', fontWeight: 'bold', color: '#71717a', margin: '4px 0 0 0' }}>Qualidade e Confiança</p>
+                <div className="text-xs text-zinc-600 mt-2" style={{ fontSize: '12px', color: '#52525b', marginTop: '8px' }}>
+                  <p style={{ margin: '2px 0' }}>Av. Godofredo Maciel, 3190 - Parangaba</p>
+                  <p style={{ margin: '2px 0' }}>Fortaleza - CE, CEP: 60710-001</p>
+                  <p style={{ margin: '2px 0' }}>Telefone: (85) 3233-2200 / Email: franklinmotos2023@gmail.com</p>
+                </div>
+              </div>
+              <div className="text-right" style={{ textAlign: 'right' }}>
+                <span className="inline-block px-3 py-1 bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-widest rounded mb-3" style={{ display: 'inline-block', padding: '4px 12px', backgroundColor: '#18181b', color: '#ffffff', fontSize: '10px', fontWeight: 'bold', borderRadius: '4px', marginBottom: '12px' }}>
+                  Simulação de Compra
+                </span>
+                <p className="text-xs font-bold text-zinc-700" style={{ fontSize: '12px', fontWeight: 'bold', color: '#3f3f46', margin: 0 }}>Data: {new Date().toLocaleDateString('pt-BR')}</p>
+                <p className="text-[10px] text-zinc-400 mt-1" style={{ fontSize: '10px', color: '#a1a1aa', marginTop: '4px', margin: 0 }}>Gerado eletronicamente</p>
+              </div>
+            </div>
+
+            {/* Vehicle Details */}
+            <div className="mb-6" style={{ marginBottom: '24px' }}>
+              <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-200 pb-1.5 mb-3" style={{ fontSize: '12px', fontWeight: 'bold', color: '#71717a', borderBottom: '1px solid #e4e4e7', paddingBottom: '6px', marginBottom: '12px' }}>1. Dados do Veículo</h2>
+              <div className="grid grid-cols-2 gap-y-2.5 gap-x-4 text-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: '10px', columnGap: '16px', fontSize: '14px' }}>
+                <div>
+                  <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>Marca / Modelo:</span>
+                  <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{moto.marcaModelo}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>Placa:</span>
+                  <span className="font-bold text-zinc-900 font-mono" style={{ fontWeight: 'bold', color: '#18181b', fontFamily: 'monospace' }}>{moto.placa || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>Ano de Fabricação / Modelo:</span>
+                  <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{moto.anoFabricacao || '-'}/{moto.anoModelo || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>Preço de Tabela (À Vista):</span>
+                  <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{formatCurrency(moto.precoAVista)}</span>
+                </div>
+                {moto.quilometragem && (
+                  <div>
+                    <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>Quilometragem:</span>
+                    <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{moto.quilometragem} km</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Client Info if provided */}
+            {buyerData.nome && (
+              <div className="mb-6" style={{ marginBottom: '24px' }}>
+                <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-200 pb-1.5 mb-3" style={{ fontSize: '12px', fontWeight: 'bold', color: '#71717a', borderBottom: '1px solid #e4e4e7', paddingBottom: '6px', marginBottom: '12px' }}>2. Dados do Cliente</h2>
+                <div className="grid grid-cols-2 gap-y-2.5 gap-x-4 text-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: '10px', columnGap: '16px', fontSize: '14px' }}>
+                  <div>
+                    <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>Nome do Cliente:</span>
+                    <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{buyerData.nome}</span>
+                  </div>
+                  {buyerData.cpf && (
+                    <div>
+                      <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>CPF:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{buyerData.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")}</span>
+                    </div>
+                  )}
+                  {buyerData.telefone && (
+                    <div>
+                      <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>Telefone:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{buyerData.telefone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3")}</span>
+                    </div>
+                  )}
+                  {buyerData.cep && (
+                    <div>
+                      <span className="text-xs text-zinc-500 block" style={{ fontSize: '12px', color: '#71717a', display: 'block' }}>CEP:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{buyerData.cep}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Simulation Details */}
+            <div className="mb-6" style={{ marginBottom: '24px' }}>
+              <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-200 pb-1.5 mb-3" style={{ fontSize: '12px', fontWeight: 'bold', color: '#71717a', borderBottom: '1px solid #e4e4e7', paddingBottom: '6px', marginBottom: '12px' }}>3. Detalhes da Opção Selecionada</h2>
+              <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg" style={{ padding: '16px', backgroundColor: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: '8px' }}>
+                <div className="flex justify-between items-center text-sm mb-3 pb-3 border-b border-zinc-200" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #e4e4e7' }}>
+                  <span className="text-zinc-500 font-medium" style={{ color: '#71717a' }}>Forma de Pagamento:</span>
+                  <span className="font-bold text-zinc-900 uppercase tracking-wider text-xs" style={{ fontWeight: 'bold', color: '#18181b', fontSize: '12px' }}>
+                    {paymentMethod === 'cartao' ? 'Cartão de Crédito (Parcelamento)' : paymentMethod === 'avista' ? 'Pagamento à Vista' : 'Financiamento Bancário'}
+                  </span>
+                </div>
+
+                {paymentMethod === 'cartao' && resultado && (
+                  <div className="space-y-2 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
+                    <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="text-zinc-600" style={{ color: '#52525b' }}>Valor Base da Moto:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{formatCurrency(resultado.valorBase)}</span>
+                    </div>
+                    <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="text-zinc-600" style={{ color: '#52525b' }}>Entrada Paga pelo Cliente:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{formatCurrency(resultado.entrada)}</span>
+                    </div>
+                    {resultado.taxasExtras > 0 && (
+                      <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span className="text-zinc-600" style={{ color: '#52525b' }}>Taxas Extras:</span>
+                        <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>+ {formatCurrency(resultado.taxasExtras)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="text-zinc-600" style={{ color: '#52525b' }}>Valor Líquido Financiado no Cartão:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{formatCurrency(resultado.valorFinanciado)}</span>
+                    </div>
+                    <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="text-zinc-600" style={{ color: '#52525b' }}>Taxa do Parcelamento:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>+ {formatCurrency(resultado.totalJuros - (resultado.parcelas * 20))}</span>
+                    </div>
+                    <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="text-zinc-600" style={{ color: '#52525b' }}>Taxa Administrativa da Loja:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>+ {formatCurrency(resultado.parcelas * 20)}</span>
+                    </div>
+                    <div className="pt-2 border-t border-dashed border-zinc-300 flex justify-between items-center text-zinc-900" style={{ borderTop: '1px dashed #d4d4d8', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span className="text-xs text-zinc-500 block uppercase font-bold tracking-wider" style={{ fontSize: '10px', color: '#71717a', display: 'block', fontWeight: 'bold' }}>PLANO SELECIONADO:</span>
+                        <span className="text-2xl font-black text-zinc-900" style={{ fontSize: '24px', fontWeight: '900', color: '#18181b' }}>{resultado.parcelas}x de {formatCurrency(resultado.valorParcela)}</span>
+                      </div>
+                      <div className="text-right" style={{ textAlign: 'right' }}>
+                        <span className="text-xs text-zinc-500 block uppercase font-bold tracking-wider" style={{ fontSize: '10px', color: '#71717a', display: 'block', fontWeight: 'bold' }}>VALOR TOTAL DA OPERAÇÃO:</span>
+                        <span className="text-xl font-black text-orange-600" style={{ fontSize: '20px', fontWeight: '900', color: '#ea580c' }}>{formatCurrency(resultado.valorFinal)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {paymentMethod === 'avista' && (
+                  <div className="space-y-2 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
+                    <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="text-zinc-600" style={{ color: '#52525b' }}>Valor de Tabela:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{formatCurrency(moto.precoAVista)}</span>
+                    </div>
+                    {avistaDiscount > 0 && (
+                      <div className="flex justify-between text-green-600" style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a' }}>
+                        <span>Desconto Especial (À Vista):</span>
+                        <span className="font-bold">-{formatCurrency(avistaDiscount)}</span>
+                      </div>
+                    )}
+                    <div className="pt-3 border-t border-dashed border-zinc-300 flex justify-between items-center text-zinc-900" style={{ borderTop: '1px dashed #d4d4d8', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="text-sm font-black uppercase tracking-wider text-zinc-700" style={{ fontSize: '14px', fontWeight: '900', color: '#3f3f46' }}>VALOR TOTAL A PAGAR À VISTA:</span>
+                      <span className="text-2xl font-black text-green-600" style={{ fontSize: '24px', fontWeight: '900', color: '#16a34a' }}>{formatCurrency(moto.precoAVista - avistaDiscount)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {paymentMethod === 'financiamento' && (
+                  <div className="space-y-2 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
+                    <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="text-zinc-600" style={{ color: '#52525b' }}>Valor Total do Veículo:</span>
+                      <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{formatCurrency(moto.precoAVista)}</span>
+                    </div>
+                    {banco && (
+                      <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span className="text-zinc-600" style={{ color: '#52525b' }}>Instituição Financeira / Banco:</span>
+                        <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{banco}</span>
+                      </div>
+                    )}
+                    {valorFinanciadoBancario !== '' && (
+                      <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span className="text-zinc-600" style={{ color: '#52525b' }}>Valor de Financiamento Proposto:</span>
+                        <span className="font-bold text-zinc-900" style={{ fontWeight: 'bold', color: '#18181b' }}>{formatCurrency(Number(valorFinanciadoBancario))}</span>
+                      </div>
+                    )}
+                    <div className="pt-3 border-t border-dashed border-zinc-300 flex justify-between items-center text-zinc-900" style={{ borderTop: '1px dashed #d4d4d8', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 leading-normal" style={{ fontSize: '12px', color: '#71717a', fontWeight: 'bold' }}>
+                        * O valor das parcelas e aprovação dependem exclusivamente da análise de crédito da instituição parceira.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Terms & Signatures */}
+          <div>
+            <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg mb-6" style={{ padding: '16px', backgroundColor: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: '8px', marginBottom: '24px' }}>
+              <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5" style={{ fontSize: '10px', fontWeight: '900', color: '#71717a', marginBottom: '6px' }}>Termos de Simulação:</h3>
+              <ul className="text-[9px] text-zinc-500 space-y-1 list-disc pl-3" style={{ fontSize: '9px', color: '#71717a', paddingLeft: '12px', margin: 0 }}>
+                <li style={{ marginBottom: '4px' }}>Esta proposta de simulação tem caráter meramente informativo e validade exclusiva para o dia da sua emissão.</li>
+                <li style={{ marginBottom: '4px' }}>Valores de parcelamento e taxas de juros no cartão de crédito estão sujeitos a alterações de acordo com a operadora do cartão e variações de mercado.</li>
+                <li style={{ marginBottom: '4px' }}>Garantia contratual estendida de 6 meses (ou até 3.500 km rodados neste período) sob as condições de entrega e vistoria presencial da Franklin Motos.</li>
+                <li style={{ marginBottom: '4px' }}>A aprovação final está condicionada à verificação de crédito pessoal e à disponibilidade do veículo no estoque físico.</li>
+              </ul>
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-zinc-200 grid grid-cols-2 gap-8 text-center text-xs" style={{ borderTop: '1px solid #e4e4e7', display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '32px', textAlign: 'center', fontSize: '12px', marginTop: '32px', paddingTop: '32px' }}>
+              <div>
+                <div style={{ width: '180px', margin: '0 auto', borderBottom: '1px solid #a1a1aa', height: '30px' }} />
+                <p className="text-zinc-600 mt-2" style={{ color: '#52525b', marginTop: '8px', margin: '8px 0 0 0' }}>Franklin Motos</p>
+                <p className="text-[10px] text-zinc-400" style={{ fontSize: '10px', color: '#a1a1aa', margin: 0 }}>Representante de Vendas</p>
+              </div>
+              <div>
+                <div style={{ width: '180px', margin: '0 auto', borderBottom: '1px solid #a1a1aa', height: '30px' }} />
+                <p className="text-zinc-600 mt-2" style={{ color: '#52525b', marginTop: '8px', margin: '8px 0 0 0' }}>{buyerData.nome || 'Cliente'}</p>
+                <p className="text-[10px] text-zinc-400" style={{ fontSize: '10px', color: '#a1a1aa', margin: 0 }}>Assinatura</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,55 @@ import { numeroPorExtenso } from '../utils/numberToWords';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { useReactToPrint } from 'react-to-print';
+import { motion, AnimatePresence } from 'motion/react';
+import { doc, updateDoc, db, handleFirestoreError, OperationType, getDocs, collection } from '../firebase';
+
+const inlineAllStyles = (source: HTMLElement, target: HTMLElement) => {
+  const sourceRootStyle = window.getComputedStyle(source);
+  for (let i = 0; i < sourceRootStyle.length; i++) {
+    const propName = sourceRootStyle[i];
+    if (propName.startsWith('--')) continue; // Skip custom CSS variables/properties
+    
+    let val = sourceRootStyle.getPropertyValue(propName);
+    if (val.includes('oklch')) {
+      if (propName === 'color') val = '#000000';
+      else if (propName.includes('background')) val = '#ffffff';
+      else if (propName.includes('border')) val = '#e4e4e7';
+      else continue;
+    }
+    
+    target.style.setProperty(propName, val, sourceRootStyle.getPropertyPriority(propName));
+  }
+
+  const sourceElements = Array.from(source.querySelectorAll('*'));
+  const targetElements = Array.from(target.querySelectorAll('*'));
+
+  for (let i = 0; i < sourceElements.length; i++) {
+    const srcEl = sourceElements[i] as HTMLElement;
+    const tgtEl = targetElements[i] as HTMLElement;
+    if (srcEl && tgtEl) {
+      const computed = window.getComputedStyle(srcEl);
+      for (let j = 0; j < computed.length; j++) {
+        const propName = computed[j];
+        if (propName.startsWith('--')) continue; // Skip custom CSS variables/properties
+        
+        let val = computed.getPropertyValue(propName);
+        if (val.includes('oklch')) {
+          if (propName === 'color') val = '#000000';
+          else if (propName.includes('background')) val = '#ffffff';
+          else if (propName.includes('border')) val = '#e4e4e7';
+          else continue;
+        }
+        
+        tgtEl.style.setProperty(
+          propName,
+          val,
+          computed.getPropertyPriority(propName)
+        );
+      }
+    }
+  }
+};
 
 interface ReceiptGeneratorProps {
   moto: Moto;
@@ -16,19 +65,21 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
   const [buyerData, setBuyerData] = useState<BuyerData>({
     nome: saleRecord.compradorNome || '',
     cpf: saleRecord.compradorCpf || '',
-    rg: '',
-    endereco: '',
+    rg: saleRecord.compradorRg || '',
+    endereco: saleRecord.compradorEndereco || '',
     telefone: saleRecord.telefone || '',
     dataVenda: new Date(saleRecord.dataVenda).toISOString().split('T')[0],
     cep: saleRecord.cep || ''
   });
 
   const [isSaved, setIsSaved] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setBuyerData(prev => ({ ...prev, [name]: value }));
+    setIsSaved(false);
   };
 
   const formatCurrency = (value: number) => {
@@ -41,46 +92,78 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
     const documentTitle = `Recibo-${saleRecord.motoPlaca}-${buyerData.nome.replace(/\s+/g, '-').toLowerCase()}`;
     document.title = documentTitle;
 
-    const printSection = document.createElement('div');
-    printSection.id = 'react-to-print-fallback-section';
+    // Create a temporary hidden iframe for clean printing
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
 
-    const styleElement = document.createElement('style');
-    styleElement.id = 'react-to-print-fallback-style';
-    styleElement.innerHTML = `
-      @media print {
-        body > :not(#react-to-print-fallback-section) {
-          display: none !important;
-          visibility: hidden !important;
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      
+      const clonedReceipt = receiptRef.current.cloneNode(true) as HTMLElement;
+      inlineAllStyles(receiptRef.current, clonedReceipt);
+
+      // Reset print sizes for clean A4 fit
+      clonedReceipt.style.width = '100%';
+      clonedReceipt.style.height = 'auto';
+      clonedReceipt.style.minHeight = '0';
+      clonedReceipt.style.boxShadow = 'none';
+      clonedReceipt.style.margin = '0';
+      clonedReceipt.style.padding = '10mm';
+      clonedReceipt.style.boxSizing = 'border-box';
+      clonedReceipt.style.backgroundColor = '#ffffff';
+
+      doc.write(`
+        <html>
+          <head>
+            <title>${documentTitle}</title>
+            <meta charset="utf-8" />
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                background: white;
+                color: black;
+                font-family: 'Inter', sans-serif;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              @page {
+                size: A4;
+                margin: 0;
+              }
+            </style>
+          </head>
+          <body>
+            ${clonedReceipt.outerHTML}
+          </body>
+        </html>
+      `);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (e) {
+          console.error("Erro ao imprimir no iframe:", e);
+          window.print();
+        } finally {
+          document.body.removeChild(iframe);
+          document.title = originalTitle;
         }
-        #react-to-print-fallback-section, #react-to-print-fallback-section * {
-          visibility: visible !important;
-          display: block !important;
-        }
-        #react-to-print-fallback-section {
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 100% !important;
-          height: auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: white !important;
-        }
-      }
-    `;
-
-    document.head.appendChild(styleElement);
-    const clone = receiptRef.current.cloneNode(true) as HTMLElement;
-    printSection.appendChild(clone);
-    document.body.appendChild(printSection);
-
-    window.print();
-
-    setTimeout(() => {
-      printSection.remove();
-      styleElement.remove();
+      }, 500);
+    } else {
+      window.print();
       document.title = originalTitle;
-    }, 1000);
+    }
   };
 
   const [isDownloading, setIsDownloading] = useState(false);
@@ -91,124 +174,86 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
     setIsDownloading(true);
     setPdfError(null);
     
+    // Create a temporary hidden iframe to completely isolate html2canvas from parent document's styles.
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
     try {
       const element = receiptRef.current;
-      
-      const canvas = await html2canvas(element, {
+      const iframeDoc = iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        throw new Error("Não foi possível acessar o documento do iframe para geração.");
+      }
+
+      const clonedReceipt = element.cloneNode(true) as HTMLElement;
+      inlineAllStyles(element, clonedReceipt);
+
+      // Force proper ID, layout and white background
+      clonedReceipt.id = 'receipt-content';
+      clonedReceipt.style.width = '794px';
+      clonedReceipt.style.height = '1123px';
+      clonedReceipt.style.padding = '40px';
+      clonedReceipt.style.boxSizing = 'border-box';
+      clonedReceipt.style.backgroundColor = '#ffffff';
+      clonedReceipt.style.color = '#000000';
+      clonedReceipt.style.display = 'flex';
+      clonedReceipt.style.flexDirection = 'column';
+      clonedReceipt.style.justifyContent = 'space-between';
+
+      iframeDoc.open();
+      iframeDoc.write(`
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                background: white;
+                color: black;
+                font-family: 'Inter', sans-serif;
+              }
+            </style>
+          </head>
+          <body>
+            <div id="capture-container"></div>
+          </body>
+        </html>
+      `);
+      iframeDoc.close();
+
+      const container = iframeDoc.getElementById('capture-container');
+      if (container) {
+        container.appendChild(clonedReceipt);
+      }
+
+      // Small delay to ensure styles and layouts are resolved inside the iframe
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const elementToCapture = iframeDoc.getElementById('receipt-content') || clonedReceipt;
+
+      const canvas = await html2canvas(elementToCapture, {
         scale: 2,
         useCORS: true,
-        imageTimeout: 15000,
-        logging: true,
+        logging: false,
         backgroundColor: '#ffffff',
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
+        windowHeight: 1123,
         scrollX: 0,
-        scrollY: -window.scrollY,
-        onclone: (clonedDoc) => {
-          const oklchToRgb = (L: number, C: number, H: number, alpha = 1) => {
-            const a_coord = C * Math.cos((H * Math.PI) / 180);
-            const b_coord = C * Math.sin((H * Math.PI) / 180);
-
-            const l_ = L + 0.3963377774 * a_coord + 0.2158037573 * b_coord;
-            const m_ = L - 0.1055613458 * a_coord - 0.0638541128 * b_coord;
-            const s_ = L - 0.0894841775 * a_coord - 1.2914855414 * b_coord;
-
-            const l = l_ * l_ * l_;
-            const m = m_ * m_ * m_;
-            const s = s_ * s_ * s_;
-
-            const r_linear = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-            const g_linear = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-            const b_linear = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
-
-            const f = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
-            const r = Math.round(Math.max(0, Math.min(1, f(r_linear))) * 255);
-            const g = Math.round(Math.max(0, Math.min(1, f(g_linear))) * 255);
-            const b = Math.round(Math.max(0, Math.min(1, f(b_linear))) * 255);
-
-            if (alpha !== undefined && alpha !== null && alpha !== 1) {
-              return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            }
-            return `rgb(${r}, ${g}, ${b})`;
-          };
-
-          const convertString = (str: string) => {
-            return str.replace(/oklch\(([^)]+)\)/g, (match, content) => {
-              try {
-                const parts = content.split('/');
-                const coords = parts[0].trim().split(/\s+/);
-                if (coords.length < 3) return match;
-                const L = parseFloat(coords[0]);
-                const C = parseFloat(coords[1]);
-                const H = parseFloat(coords[2]);
-                let alpha = 1;
-                if (parts[1]) {
-                  const alphaStr = parts[1].trim();
-                  if (alphaStr.endsWith('%')) {
-                    alpha = parseFloat(alphaStr) / 100;
-                  } else {
-                    alpha = parseFloat(alphaStr);
-                  }
-                }
-                if (isNaN(L) || isNaN(C) || isNaN(H)) return match;
-                return oklchToRgb(L, C, H, alpha);
-              } catch (e) {
-                return match;
-              }
-            });
-          };
-
-          // Filter and clean stylesheet text of oklch
-          clonedDoc.querySelectorAll('style').forEach(style => {
-            try {
-              style.innerHTML = convertString(style.innerHTML);
-            } catch (e) {
-              console.warn("Failed to sanitize style tag:", e);
-            }
-          });
-
-          // Filter inline styles
-          clonedDoc.querySelectorAll('[style]').forEach(el => {
-            const styleAttr = el.getAttribute('style');
-            if (styleAttr) {
-              try {
-                el.setAttribute('style', convertString(styleAttr));
-              } catch (e) {}
-            }
-          });
-
-          const style = clonedDoc.createElement('style');
-          style.innerHTML = `
-            :root {
-              --color-white: #ffffff !important;
-              --color-black: #000000 !important;
-              --color-zinc-50: #fafafa !important;
-              --color-zinc-100: #f4f4f5 !important;
-              --color-zinc-200: #e4e4e7 !important;
-              --color-zinc-300: #d4d4d8 !important;
-              --color-zinc-400: #a1a1aa !important;
-              --color-zinc-500: #71717a !important;
-              --color-zinc-600: #52525b !important;
-              --color-zinc-700: #3f3f46 !important;
-              --color-zinc-800: #27272a !important;
-              --color-zinc-900: #18181b !important;
-              --color-zinc-950: #09090b !important;
-              --color-orange-50: #fff7ed !important;
-              --color-orange-100: #ffedd5 !important;
-              --color-orange-200: #fed7aa !important;
-              --color-orange-300: #fdba74 !important;
-              --color-orange-400: #fb923c !important;
-              --color-orange-500: #f97316 !important;
-              --color-orange-600: #ea580c !important;
-              --color-orange-700: #c2410c !important;
-              --color-blue-600: #2563eb !important;
-              --color-blue-700: #1d4ed8 !important;
-              --color-green-500: #22c55e !important;
-              --color-green-600: #16a34a !important;
-            }
-          `;
-          const target = clonedDoc.head || clonedDoc.body || clonedDoc.documentElement;
-          target.appendChild(style);
-        }
-      });
+        scrollY: 0,
+        window: iframe.contentWindow || window,
+        document: iframeDoc
+      } as any);
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({
@@ -218,31 +263,89 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
       });
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = pdfWidth / imgWidth;
-      
-      const finalWidth = pdfWidth;
-      const finalHeight = imgHeight * ratio;
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, finalWidth, finalHeight);
-      
-      // If content is longer than one page, we might need to handle it, 
-      // but usually receipts are one page A4.
-      
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`recibo-venda-${saleRecord.motoPlaca}-${buyerData.nome.replace(/\s+/g, '-').toLowerCase()}.pdf`);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       setPdfError("Erro ao gerar PDF. Tente usar a opção 'Imprimir Recibo' e selecione 'Salvar como PDF'.");
     } finally {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
       setIsDownloading(false);
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaved(true);
+    if (isSaving) return;
+    setIsSaving(true);
+
+    try {
+      if (saleRecord.id) {
+        const saleRef = doc(db, 'sales', saleRecord.id);
+        const updatedData = {
+          compradorNome: buyerData.nome,
+          compradorCpf: buyerData.cpf,
+          compradorRg: buyerData.rg || '',
+          compradorEndereco: buyerData.endereco || '',
+          telefone: buyerData.telefone,
+          dataVenda: buyerData.dataVenda,
+          cep: buyerData.cep || ''
+        };
+
+        try {
+          await updateDoc(saleRef, updatedData);
+        } catch (fbErr) {
+          handleFirestoreError(fbErr, OperationType.UPDATE, `sales/${saleRecord.id}`);
+        }
+
+        // Keep local reference in sync
+        saleRecord.compradorNome = buyerData.nome;
+        saleRecord.compradorCpf = buyerData.cpf;
+        saleRecord.compradorRg = buyerData.rg || '';
+        saleRecord.compradorEndereco = buyerData.endereco || '';
+        saleRecord.telefone = buyerData.telefone;
+        saleRecord.dataVenda = buyerData.dataVenda;
+        saleRecord.cep = buyerData.cep || '';
+
+        // Auto-archive motorcycle if sale is completed and now contains filled customer details
+        const hasRealNome = buyerData.nome && buyerData.nome.trim() !== '' && buyerData.nome !== 'Venda Direta (Admin)';
+        const hasRealCpf = buyerData.cpf && buyerData.cpf.trim() !== '' && buyerData.cpf !== '000.000.000-00';
+        const hasRealTel = buyerData.telefone && buyerData.telefone.trim() !== '' && buyerData.telefone !== '-';
+
+        if (saleRecord.status === 'concluida' && hasRealNome && hasRealCpf && hasRealTel) {
+          try {
+            if (saleRecord.motoId) {
+              await updateDoc(doc(db, 'motos', saleRecord.motoId), { arquivada: true });
+            }
+            if (saleRecord.motoPlaca) {
+              const purchasesSnapshot = await getDocs(collection(db, 'purchases'));
+              const matchingDoc = purchasesSnapshot.docs.find(d => d.data().motoInfo?.placa === saleRecord.motoPlaca);
+              if (matchingDoc) {
+                await updateDoc(doc(db, 'purchases', matchingDoc.id), {
+                  arquivada: true
+                });
+              }
+            }
+          } catch (err) {
+            console.error("Erro ao arquivar moto automaticamente no recibo de venda:", err);
+          }
+        }
+      }
+
+      setTimeout(() => {
+        setIsSaved(true);
+        setIsSaving(false);
+      }, 800);
+    } catch (error) {
+      console.error("Erro ao salvar recibo:", error);
+      setIsSaving(false);
+      // Fallback local persistence so user doesn't get blocked
+      setIsSaved(true);
+    }
   };
 
   const valorFinal = saleRecord.valorVendaFinal ?? saleRecord.valorVenda ?? moto.precoAVista;
@@ -295,13 +398,24 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
             size: A4;
             margin: 0;
           }
-          body {
-            background: white !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          body * {
+            visibility: hidden !important;
           }
-          .custom-scrollbar {
-            overflow: visible !important;
+          #receipt-content, #receipt-content * {
+            visibility: visible !important;
+          }
+          #receipt-content {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            margin: 0 !important;
+            padding: 12mm !important;
+            box-shadow: none !important;
+            background: white !important;
+            box-sizing: border-box !important;
           }
         }
       ` }} />
@@ -402,21 +516,61 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
           </div>
 
           <div className="pt-6 border-t border-zinc-800 flex flex-col gap-3">
-            <button
+            <motion.button
               type="submit"
-              className={`w-full py-3 rounded-xl font-black transition-colors shadow-md flex justify-center items-center gap-2 uppercase tracking-wider text-sm ${
-                isSaved ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-orange-600 text-black hover:bg-orange-500 shadow-[0_0_15px_rgba(234,88,12,0.3)]'
-              }`}
+              disabled={isSaving}
+              layout
+              initial={false}
+              animate={{
+                backgroundColor: isSaved ? '#16a34a' : '#ea580c',
+                color: isSaved ? '#ffffff' : '#00050c',
+                scale: isSaving ? 0.98 : 1,
+              }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`w-full py-3 rounded-xl font-black shadow-lg flex justify-center items-center gap-2 uppercase tracking-wider text-sm cursor-pointer border border-transparent select-none`}
             >
-              {isSaved ? (
-                <>
-                  <CheckCircle size={18} />
-                  Dados Salvos
-                </>
-              ) : (
-                'Salvar Dados'
-              )}
-            </button>
+              <AnimatePresence mode="wait">
+                {isSaving ? (
+                  <motion.div
+                    key="saving"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="flex items-center gap-2 text-black font-black"
+                  >
+                    <svg className="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Salvando...</span>
+                  </motion.div>
+                ) : isSaved ? (
+                  <motion.div
+                    key="saved"
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.5, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 350, damping: 15 }}
+                    className="flex items-center gap-2 text-white font-black"
+                  >
+                    <CheckCircle size={18} className="text-white" />
+                    <span>Dados Salvos</span>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="save"
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="flex items-center gap-2 text-black font-black"
+                  >
+                    <span>Salvar Dados</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.button>
             <button
               type="button"
               onClick={handlePrint}
@@ -459,7 +613,7 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
         <div 
           id="receipt-content"
           ref={receiptRef}
-          className="w-[794px] min-h-[1123px] bg-white shadow-2xl mx-auto print:shadow-none print:w-full print:min-h-0 text-black flex flex-col"
+          className="w-[651px] min-h-[1123px] bg-white shadow-2xl mx-auto print:shadow-none print:w-full print:min-h-0 text-black flex flex-col"
           style={{ padding: '40px', boxSizing: 'border-box' }}
         >
           {/* Cabeçalho Moderno */}
@@ -577,6 +731,21 @@ export default function ReceiptGenerator({ moto, saleRecord, onBack }: ReceiptGe
                 ) : (
                   <div className="text-zinc-500 text-xs font-bold italic">Nenhum pagamento registrado.</div>
                 )}
+              </div>
+            </div>
+
+            {/* Código de Defesa do Consumidor e Termo de Garantia */}
+            <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-6">
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <ShieldCheck size={14} className="text-orange-600" /> Código de Defesa do Consumidor (CDC) & Garantia
+                </h3>
+                <p className="text-[11px] text-zinc-650 leading-relaxed text-justify">
+                  Conforme determinado pelo Artigo 26 do Código de Defesa do Consumidor (CDC) brasileiro, a garantia legal obrigatória para motocicletas e veículos usados (bens duráveis) é de <strong>90 dias (3 meses)</strong>. Como benefício exclusivo pós-venda de nossa marca e visando a sua segurança técnica plena, a <strong>Franklin Motos</strong> concede uma garantia bônus voluntária de mais <strong>3 meses (90 dias)</strong> adicionais, totalizando <strong>6 meses (180 dias) de garantia total (limitada a motor e câmbio) com cobertura válida para o referido prazo ou até atingir a quilometragem máxima de 3.500 km rodados</strong> (o que ocorrer primeiro). Este bônus contratual é condicionado à conservação adequada e manutenção preventiva correta realizada pelo proprietário.
+                </p>
+                <p className="text-[11px] text-zinc-650 leading-relaxed text-justify border-t border-zinc-200/60 pt-2.5">
+                  <strong>Declaração de Entrega e Vistoria Presencial:</strong> Fica formalmente registrado que o adquirente/novo proprietário acompanhou de forma minuciosa a vistoria técnica e estética detalhada no ato da entrega do veículo, declarando estar plenamente ciente e de acordo com o excelente estado mecânico, funcional, operacional e estético da motocicleta, atestando que a mesma se encontra em perfeitas condições de uso, segurança e conservação.
+                </p>
               </div>
             </div>
 

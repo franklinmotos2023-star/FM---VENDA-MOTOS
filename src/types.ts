@@ -66,6 +66,8 @@ export type SaleRecord = {
   motoPlaca: string;
   compradorNome: string;
   compradorCpf: string;
+  compradorRg?: string;
+  compradorEndereco?: string;
   telefone: string;
   email?: string;
   cep?: string;

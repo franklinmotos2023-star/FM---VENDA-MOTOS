@@ -6,6 +6,53 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { useReactToPrint } from 'react-to-print';
 
+const inlineAllStyles = (source: HTMLElement, target: HTMLElement) => {
+  const sourceRootStyle = window.getComputedStyle(source);
+  for (let i = 0; i < sourceRootStyle.length; i++) {
+    const propName = sourceRootStyle[i];
+    if (propName.startsWith('--')) continue; // Skip custom CSS variables/properties
+    
+    let val = sourceRootStyle.getPropertyValue(propName);
+    if (val.includes('oklch')) {
+      if (propName === 'color') val = '#000000';
+      else if (propName.includes('background')) val = '#ffffff';
+      else if (propName.includes('border')) val = '#e4e4e7';
+      else continue;
+    }
+    
+    target.style.setProperty(propName, val, sourceRootStyle.getPropertyPriority(propName));
+  }
+
+  const sourceElements = Array.from(source.querySelectorAll('*'));
+  const targetElements = Array.from(target.querySelectorAll('*'));
+
+  for (let i = 0; i < sourceElements.length; i++) {
+    const srcEl = sourceElements[i] as HTMLElement;
+    const tgtEl = targetElements[i] as HTMLElement;
+    if (srcEl && tgtEl) {
+      const computed = window.getComputedStyle(srcEl);
+      for (let j = 0; j < computed.length; j++) {
+        const propName = computed[j];
+        if (propName.startsWith('--')) continue; // Skip custom CSS variables/properties
+        
+        let val = computed.getPropertyValue(propName);
+        if (val.includes('oklch')) {
+          if (propName === 'color') val = '#000000';
+          else if (propName.includes('background')) val = '#ffffff';
+          else if (propName.includes('border')) val = '#e4e4e7';
+          else continue;
+        }
+        
+        tgtEl.style.setProperty(
+          propName,
+          val,
+          computed.getPropertyPriority(propName)
+        );
+      }
+    }
+  }
+};
+
 interface PurchaseReceiptGeneratorProps {
   purchase: PurchaseRecord;
   onBack: () => void;
@@ -27,46 +74,78 @@ export default function PurchaseReceiptGenerator({ purchase, onBack, isNew }: Pu
     const documentTitle = `Recibo-Compra-${purchase.motoInfo.placa}-${purchase.vendedorNome.replace(/\s+/g, '-').toLowerCase()}`;
     document.title = documentTitle;
 
-    const printSection = document.createElement('div');
-    printSection.id = 'react-to-print-fallback-section';
+    // Create temporary hidden iframe for printable content separation
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
 
-    const styleElement = document.createElement('style');
-    styleElement.id = 'react-to-print-fallback-style';
-    styleElement.innerHTML = `
-      @media print {
-        body > :not(#react-to-print-fallback-section) {
-          display: none !important;
-          visibility: hidden !important;
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      
+      const clonedReceipt = receiptRef.current.cloneNode(true) as HTMLElement;
+      inlineAllStyles(receiptRef.current, clonedReceipt);
+
+      // Apply print styling resets
+      clonedReceipt.style.width = '100%';
+      clonedReceipt.style.height = 'auto';
+      clonedReceipt.style.minHeight = '0';
+      clonedReceipt.style.boxShadow = 'none';
+      clonedReceipt.style.margin = '0';
+      clonedReceipt.style.padding = '10mm';
+      clonedReceipt.style.boxSizing = 'border-box';
+      clonedReceipt.style.backgroundColor = '#ffffff';
+
+      doc.write(`
+        <html>
+          <head>
+            <title>${documentTitle}</title>
+            <meta charset="utf-8" />
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                background: white;
+                color: black;
+                font-family: 'Inter', sans-serif;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              @page {
+                size: A4;
+                margin: 0;
+              }
+            </style>
+          </head>
+          <body>
+            ${clonedReceipt.outerHTML}
+          </body>
+        </html>
+      `);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (e) {
+          console.error("Iframe printing exception:", e);
+          window.print();
+        } finally {
+          document.body.removeChild(iframe);
+          document.title = originalTitle;
         }
-        #react-to-print-fallback-section, #react-to-print-fallback-section * {
-          visibility: visible !important;
-          display: block !important;
-        }
-        #react-to-print-fallback-section {
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 100% !important;
-          height: auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: white !important;
-        }
-      }
-    `;
-
-    document.head.appendChild(styleElement);
-    const clone = receiptRef.current.cloneNode(true) as HTMLElement;
-    printSection.appendChild(clone);
-    document.body.appendChild(printSection);
-
-    window.print();
-
-    setTimeout(() => {
-      printSection.remove();
-      styleElement.remove();
+      }, 500);
+    } else {
+      window.print();
       document.title = originalTitle;
-    }, 1000);
+    }
   };
 
   const handleDownload = async () => {
@@ -74,124 +153,86 @@ export default function PurchaseReceiptGenerator({ purchase, onBack, isNew }: Pu
     setIsDownloading(true);
     setPdfError(null);
     
+    // Create a temporary hidden iframe to completely isolate html2canvas from parent document's styles.
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
     try {
       const element = receiptRef.current;
-      
-      const canvas = await html2canvas(element, {
+      const iframeDoc = iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        throw new Error("Não foi possível acessar o documento do iframe para geração.");
+      }
+
+      const clonedReceipt = element.cloneNode(true) as HTMLElement;
+      inlineAllStyles(element, clonedReceipt);
+
+      // Force proper ID, layout and white background
+      clonedReceipt.id = 'purchase-receipt-content';
+      clonedReceipt.style.width = '794px';
+      clonedReceipt.style.height = '1123px';
+      clonedReceipt.style.padding = '40px';
+      clonedReceipt.style.boxSizing = 'border-box';
+      clonedReceipt.style.backgroundColor = '#ffffff';
+      clonedReceipt.style.color = '#000000';
+      clonedReceipt.style.display = 'flex';
+      clonedReceipt.style.flexDirection = 'column';
+      clonedReceipt.style.justifyContent = 'space-between';
+
+      iframeDoc.open();
+      iframeDoc.write(`
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                background: white;
+                color: black;
+                font-family: 'Inter', sans-serif;
+              }
+            </style>
+          </head>
+          <body>
+            <div id="capture-container"></div>
+          </body>
+        </html>
+      `);
+      iframeDoc.close();
+
+      const container = iframeDoc.getElementById('capture-container');
+      if (container) {
+        container.appendChild(clonedReceipt);
+      }
+
+      // Small delay to ensure styles and layouts are resolved inside the iframe
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const elementToCapture = iframeDoc.getElementById('purchase-receipt-content') || clonedReceipt;
+
+      const canvas = await html2canvas(elementToCapture, {
         scale: 2,
         useCORS: true,
-        imageTimeout: 15000,
-        logging: true,
+        logging: false,
         backgroundColor: '#ffffff',
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
+        windowHeight: 1123,
         scrollX: 0,
-        scrollY: -window.scrollY,
-        onclone: (clonedDoc) => {
-          const oklchToRgb = (L: number, C: number, H: number, alpha = 1) => {
-            const a_coord = C * Math.cos((H * Math.PI) / 180);
-            const b_coord = C * Math.sin((H * Math.PI) / 180);
-
-            const l_ = L + 0.3963377774 * a_coord + 0.2158037573 * b_coord;
-            const m_ = L - 0.1055613458 * a_coord - 0.0638541128 * b_coord;
-            const s_ = L - 0.0894841775 * a_coord - 1.2914855414 * b_coord;
-
-            const l = l_ * l_ * l_;
-            const m = m_ * m_ * m_;
-            const s = s_ * s_ * s_;
-
-            const r_linear = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-            const g_linear = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-            const b_linear = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
-
-            const f = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
-            const r = Math.round(Math.max(0, Math.min(1, f(r_linear))) * 255);
-            const g = Math.round(Math.max(0, Math.min(1, f(g_linear))) * 255);
-            const b = Math.round(Math.max(0, Math.min(1, f(b_linear))) * 255);
-
-            if (alpha !== undefined && alpha !== null && alpha !== 1) {
-              return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            }
-            return `rgb(${r}, ${g}, ${b})`;
-          };
-
-          const convertString = (str: string) => {
-            return str.replace(/oklch\(([^)]+)\)/g, (match, content) => {
-              try {
-                const parts = content.split('/');
-                const coords = parts[0].trim().split(/\s+/);
-                if (coords.length < 3) return match;
-                const L = parseFloat(coords[0]);
-                const C = parseFloat(coords[1]);
-                const H = parseFloat(coords[2]);
-                let alpha = 1;
-                if (parts[1]) {
-                  const alphaStr = parts[1].trim();
-                  if (alphaStr.endsWith('%')) {
-                    alpha = parseFloat(alphaStr) / 100;
-                  } else {
-                    alpha = parseFloat(alphaStr);
-                  }
-                }
-                if (isNaN(L) || isNaN(C) || isNaN(H)) return match;
-                return oklchToRgb(L, C, H, alpha);
-              } catch (e) {
-                return match;
-              }
-            });
-          };
-
-          // Filter and clean stylesheet text of oklch
-          clonedDoc.querySelectorAll('style').forEach(style => {
-            try {
-              style.innerHTML = convertString(style.innerHTML);
-            } catch (e) {
-              console.warn("Failed to sanitize style tag:", e);
-            }
-          });
-
-          // Filter inline styles
-          clonedDoc.querySelectorAll('[style]').forEach(el => {
-            const styleAttr = el.getAttribute('style');
-            if (styleAttr) {
-              try {
-                el.setAttribute('style', convertString(styleAttr));
-              } catch (e) {}
-            }
-          });
-
-          const style = clonedDoc.createElement('style');
-          style.innerHTML = `
-            :root {
-              --color-white: #ffffff !important;
-              --color-black: #000000 !important;
-              --color-zinc-50: #fafafa !important;
-              --color-zinc-100: #f4f4f5 !important;
-              --color-zinc-200: #e4e4e7 !important;
-              --color-zinc-300: #d4d4d8 !important;
-              --color-zinc-400: #a1a1aa !important;
-              --color-zinc-500: #71717a !important;
-              --color-zinc-600: #52525b !important;
-              --color-zinc-700: #3f3f46 !important;
-              --color-zinc-800: #27272a !important;
-              --color-zinc-900: #18181b !important;
-              --color-zinc-950: #09090b !important;
-              --color-orange-50: #fff7ed !important;
-              --color-orange-100: #ffedd5 !important;
-              --color-orange-200: #fed7aa !important;
-              --color-orange-300: #fdba74 !important;
-              --color-orange-400: #fb923c !important;
-              --color-orange-500: #f97316 !important;
-              --color-orange-600: #ea580c !important;
-              --color-orange-700: #c2410c !important;
-              --color-blue-600: #2563eb !important;
-              --color-blue-700: #1d4ed8 !important;
-              --color-green-500: #22c55e !important;
-              --color-green-600: #16a34a !important;
-            }
-          `;
-          const target = clonedDoc.head || clonedDoc.body || clonedDoc.documentElement;
-          target.appendChild(style);
-        }
-      });
+        scrollY: 0,
+        window: iframe.contentWindow || window,
+        document: iframeDoc
+      } as any);
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({
@@ -201,24 +242,17 @@ export default function PurchaseReceiptGenerator({ purchase, onBack, isNew }: Pu
       });
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = pdfWidth / imgWidth;
-      
-      const finalWidth = pdfWidth;
-      const finalHeight = imgHeight * ratio;
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, finalWidth, finalHeight);
-      
-      // If content is longer than one page, we might need to handle multiple pages
-      // but for a receipt, usually one page is enough or we can scale it down.
-      
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`recibo-compra-${purchase.motoInfo.placa}-${purchase.vendedorNome.replace(/\s+/g, '-').toLowerCase()}.pdf`);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
-      setPdfError("Erro ao gerar PDF. Tente imprimir e salvar como PDF.");
+      setPdfError("Erro ao gerar PDF. Tente usar a opção 'Imprimir Recibo' e selecione 'Salvar como PDF'.");
     } finally {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
       setIsDownloading(false);
     }
   };

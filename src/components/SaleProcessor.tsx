@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SaleRecord, PaymentMethod, Moto } from '../types';
-import { doc, updateDoc, db, handleFirestoreError, OperationType } from '../firebase';
+import { doc, updateDoc, db, handleFirestoreError, OperationType, getDocs, collection } from '../firebase';
 import { CheckCircle2, X, Plus, Trash2, Camera, FileText, Printer } from 'lucide-react';
 import ReceiptGenerator from './ReceiptGenerator';
 
@@ -135,6 +135,34 @@ export default function SaleProcessor({ sale, moto, onClose, readOnly = false }:
       
       // Update local sale object for the receipt
       Object.assign(sale, updatedData);
+      
+      // Auto-archive motorcycle if all core data is complete
+      const nomeVal = sale.compradorNome || '';
+      const cpfVal = sale.compradorCpf || '';
+      const telVal = sale.telefone || '';
+
+      const hasRealNome = nomeVal.trim() !== '' && nomeVal !== 'Venda Direta (Admin)';
+      const hasRealCpf = cpfVal.trim() !== '' && cpfVal !== '000.000.000-00';
+      const hasRealTel = telVal.trim() !== '' && telVal !== '-';
+
+      if (hasRealNome && hasRealCpf && hasRealTel) {
+        try {
+          if (sale.motoId) {
+            await updateDoc(doc(db, 'motos', sale.motoId), { arquivada: true });
+          }
+          if (sale.motoPlaca) {
+            const purchasesSnapshot = await getDocs(collection(db, 'purchases'));
+            const matchingDoc = purchasesSnapshot.docs.find(d => d.data().motoInfo?.placa === sale.motoPlaca);
+            if (matchingDoc) {
+              await updateDoc(doc(db, 'purchases', matchingDoc.id), {
+                arquivada: true
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Erro ao arquivar moto automaticamente:", err);
+        }
+      }
       
       setIsSaved(true);
       setTimeout(() => {

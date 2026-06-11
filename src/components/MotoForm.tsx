@@ -513,6 +513,7 @@ export default function MotoForm({ onSave, onCancel, initialData }: MotoFormProp
             >
               <option value="REVISADA">REVISADA</option>
               <option value="A REVISAR">A REVISAR</option>
+              <option value="NÃO REVISADA">NÃO REVISADA</option>
               <option value="NOVA">NOVA</option>
             </select>
           </div>

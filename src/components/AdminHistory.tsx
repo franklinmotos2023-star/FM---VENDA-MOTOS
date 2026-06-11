@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, handleFirestoreError, OperationType, updateDoc, increment } from '../firebase';
 import { db } from '../firebase';
 import { SaleRecord, Moto, AcessorioSaleRecord } from '../types';
-import { Calendar, User, Phone, CheckCircle2, Clock, FileEdit, Eye, Trash2, FileText, Package, Wrench, X } from 'lucide-react';
+import { Calendar, User, Phone, CheckCircle2, Clock, FileEdit, Eye, Trash2, FileText, Package, Wrench, X, MessageSquare } from 'lucide-react';
 import SaleProcessor from './SaleProcessor';
 import AcessorioKanban from './AcessorioKanban';
 
@@ -94,6 +94,193 @@ export default function AdminHistory({ motos }: AdminHistoryProps) {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleSendWhatsAppMessage = (sale: SaleRecord) => {
+    const nome = sale.compradorNome;
+    const moto = sale.motoMarcaModelo;
+    const placa = sale.motoPlaca;
+
+    let rawMessage = '';
+
+    if (sale.status === 'concluida') {
+      const valorOriginal = formatCurrency(sale.valorVenda);
+      const valorFinal = formatCurrency(sale.valorVendaFinal || sale.valorVenda);
+      const desconto = sale.descontoAplicado && sale.descontoAplicado > 0 ? formatCurrency(sale.descontoAplicado) : 'R$ 0,00';
+      const dataVendaFormatada = sale.dataFinalizacao ? formatDate(sale.dataFinalizacao) : formatDate(sale.dataVenda);
+
+      const mapPaymentType = (tipo: string) => {
+        const maps: Record<string, string> = {
+          dinheiro: 'Dinheiro',
+          pix: 'PIX',
+          cartao_credito: 'Cartão de Crédito',
+          cartao_debito: 'Cartão de Débito',
+          financiamento: 'Financiamento Bancário',
+          promissoria: 'Nota Promissória',
+          outro: 'Outro'
+        };
+        return maps[tipo] || tipo;
+      };
+
+      let formasPagamento = '';
+      if (sale.pagamentos && sale.pagamentos.length > 0) {
+        formasPagamento = sale.pagamentos.map(p => {
+          let detail = `✔️ ${mapPaymentType(p.tipo)}: ${formatCurrency(p.valor)}`;
+          if (p.parcelas && p.parcelas > 1) {
+            detail += ` (${p.parcelas}x)`;
+          }
+          if (p.detalhes) {
+            detail += ` - ${p.detalhes}`;
+          }
+          return detail;
+        }).join('\n');
+      } else {
+        if (sale.pagamentoAVista) {
+          formasPagamento = `✔️ À Vista\n• Valor Final: ${valorFinal}`;
+        } else if (sale.financiamentoBancario) {
+          const banco = sale.financiamentoBancario.banco || 'Banco Parceiro';
+          const valorFinanciado = sale.financiamentoBancario.valorFinanciado ? formatCurrency(sale.financiamentoBancario.valorFinanciado) : valorFinal;
+          const entrada = sale.entrada ? formatCurrency(sale.entrada) : 'R$ 0,00';
+          formasPagamento = `✔️ Financiamento via ${banco}\n• Entrada: ${entrada}\n• Valor Financiado: ${valorFinanciado}`;
+        } else {
+          const entrada = sale.entrada ? formatCurrency(sale.entrada) : 'R$ 0,00';
+          const parcelas = sale.parcelas || 1;
+          const valorParcela = sale.valorParcela ? formatCurrency(sale.valorParcela) : 'R$ 0,00';
+          formasPagamento = `✔️ Parcelamento Loja / Cartão\n• Entrada: ${entrada}\n• Plano: ${parcelas}x de ${valorParcela}`;
+        }
+      }
+
+      const benefits = [];
+      if (sale.diferenciais) {
+        if (sale.diferenciais.dutIncluso) benefits.push('⭐ DUT Incluso');
+        if (sale.diferenciais.revisao) benefits.push('⭐ Motocicleta Revisada');
+        if (sale.diferenciais.garantia6Meses) {
+          benefits.push('⭐ Garantia Estendida de 6 Meses ou até 3.500 km rodados (cobertura para motor e câmbio)');
+        }
+        if (sale.diferenciais.tanqueCheio) benefits.push('⭐ Tanque Cheio');
+        if (sale.diferenciais.capacete) benefits.push('⭐ Capacete de Brinde');
+      } else {
+        benefits.push('⭐ DUT Incluso');
+        benefits.push('⭐ Motocicleta Revisada');
+        benefits.push('⭐ Garantia Estendida de 6 Meses ou até 3.500 km rodados (cobertura para motor e câmbio)');
+      }
+      benefits.push('🔍 Vistoria de Entrega Presencial: Confirmamos que o novo proprietário acompanhou presencialmente toda a vistoria detalhada de entrega do veículo, atestando sob sua total aprovação que a motocicleta se encontra em perfeitas condições mecânicas, de segurança, funcionais, estruturais e estéticas para uso imediato.');
+      const benefitsText = benefits.length > 0 ? benefits.join('\n') : '';
+
+      const observacoesTexto = sale.observacoes ? `\n\n📌 *Observações:* ${sale.observacoes}` : '';
+
+      rawMessage = `🏍️ *FRANKLIN MOTOS* 🏍️
+🧾 *RECIBO DE VENDA CONFIRMADA*
+
+Prezado(a) *${nome}*, é com enorme orgulho que confirmamos a conclusão da venda do seu veículo! Segue o recibo detalhado da negociação realizada:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *DADOS DO CLIENTE*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *Nome:* ${nome}
+• *CPF:* ${sale.compradorCpf || 'Não informado'}
+• *Telefone:* ${sale.telefone}
+• *Endereço:* ${sale.compradorEndereco || 'Não informado'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏍️ *DETALHES DO VEÍCULO*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *Modelo:* ${moto}
+• *Placa:* ${placa || 'Pendente'}
+• *Data de Conclusão:* ${dataVendaFormatada}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 *VALORES DA NEGOCIAÇÃO*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+• *Valor Comercial:* ${valorOriginal}
+• *Desconto Aplicado:* ${desconto}
+• *Valor Final da Venda:* ${valorFinal}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+💳 *FORMA DE PAGAMENTO*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+${formasPagamento}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛠️ *BENEFÍCIOS & DIFERENCIAIS ADQUIRIDOS*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+${benefitsText}${observacoesTexto}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+A *Franklin Motos* agradece imensamente a sua confiança e preferência! Desejamos excelentes rodagens com o seu novo veículo! Que ele traga muitas conquistas e caminhos prósperos! 🏍️💨✨
+━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    } else {
+      const total = formatCurrency(sale.valorVenda);
+      let pagamentoTexto = '';
+      if (sale.pagamentoAVista) {
+        pagamentoTexto = `👉 À Vista\n• Valor Final: ${total}`;
+      } else if (sale.financiamentoBancario) {
+        const banco = sale.financiamentoBancario.banco || 'Banco Parceiro';
+        const valorFinanciado = sale.financiamentoBancario.valorFinanciado ? formatCurrency(sale.financiamentoBancario.valorFinanciado) : total;
+        const entrada = sale.entrada ? formatCurrency(sale.entrada) : 'R$ 0,00';
+        pagamentoTexto = `👉 Financiamento Bancário via ${banco}\n• Entrada: ${entrada}\n• Valor Financiado: ${valorFinanciado}`;
+      } else {
+        const entrada = sale.entrada ? formatCurrency(sale.entrada) : 'R$ 0,00';
+        const parcelas = sale.parcelas || 1;
+        const valorParcela = sale.valorParcela ? formatCurrency(sale.valorParcela) : 'R$ 0,00';
+        pagamentoTexto = `👉 Parcelamento pela Loja / Cartão\n• Entrada: ${entrada}\n• Plano: ${parcelas}x de ${valorParcela}`;
+      }
+
+      // Diferenciais
+      const difs = [];
+      if (sale.diferenciais) {
+        difs.push(`• DUT Incluso: ${sale.diferenciais.dutIncluso ? 'Sim' : 'Não/Por conta'}`);
+        difs.push(`• Revisada: ${sale.diferenciais.revisao ? 'Sim' : 'Não'}`);
+        difs.push(`• Garantia de 6 meses: ${sale.diferenciais.garantia6Meses ? 'Sim' : 'Não'}`);
+        difs.push(`• Tanque Cheio: ${sale.diferenciais.tanqueCheio ? 'Sim' : 'Não'}`);
+        difs.push(`• Capacete de Brinde: ${sale.diferenciais.capacete ? 'Sim' : 'Não'}`);
+      } else {
+        difs.push(`• DUT Incluso: Sim`);
+        difs.push(`• Revisada: Sim`);
+        difs.push(`• Garantia de 6 meses: Sim`);
+      }
+
+      const diferenciaisTexto = difs.join('\n');
+
+      rawMessage = `Olá, *${nome}*! Tudo bem? 🌟
+
+Temos ótimas notícias! Sua proposta para a aquisição da motocicleta na *Franklin Motos* foi **APROVADA** com sucesso! 🎉
+
+Confira abaixo os detalhes da sua simulação aprovada:
+
+🏍️ *Veículo:* ${moto}
+📋 *Placa:* ${placa}
+💰 *Valor do Veículo:* ${total}
+
+💳 *Forma de Pagamento:*
+${pagamentoTexto}
+
+🛠️ *Diferenciais & Benefícios inclusos:*
+${diferenciaisTexto}
+
+Estamos muito felizes em fazer parte dessa nova conquista! Nossa equipe de atendimento está pronta para dar os próximos passos para a entrega do seu veículo. 
+
+Por favor, nos confirme quando puder comparecer à nossa loja para a assinatura e retirada do veículo. 🏍️✨
+
+Qualquer dúvida, estamos à total disposição neste número!
+
+Atenciosamente,
+*Franklin Motos* 🏍️`;
+    }
+
+    const encodedText = encodeURIComponent(rawMessage);
+    // Sanitize phone number (remove non-digits)
+    let cleanedPhone = sale.telefone.replace(/\D/g, '');
+    if (cleanedPhone.length > 0) {
+      // If it doesn't already have a country code (like 55 for Brazil), and has Brazilian local number length, prepend 55
+      if (!cleanedPhone.startsWith('55') && (cleanedPhone.length === 10 || cleanedPhone.length === 11)) {
+        cleanedPhone = '55' + cleanedPhone;
+      }
+    }
+    
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanedPhone}&text=${encodedText}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const filteredSales = sales.filter(sale => 
@@ -276,23 +463,33 @@ export default function AdminHistory({ motos }: AdminHistoryProps) {
                   </div>
                 </div>
 
-                {activeTab === 'pendentes' ? (
+                <div className="flex flex-col gap-2 mt-auto">
                   <button
-                    onClick={() => setSelectedSale(sale)}
-                    className="w-full py-3 bg-orange-600/10 hover:bg-orange-600 text-orange-500 hover:text-white border border-orange-600/20 hover:border-orange-600 rounded-xl font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-sm"
+                    onClick={() => handleSendWhatsAppMessage(sale)}
+                    className="w-full py-2.5 bg-emerald-600/10 hover:bg-emerald-600 hover:text-black text-emerald-500 border border-emerald-500/20 hover:border-emerald-600 rounded-xl font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-[10px]"
+                    title={sale.status === 'concluida' ? "Enviar Recibo de Venda via WhatsApp" : "Enviar WhatsApp de Proposta Aprovada"}
                   >
-                    <FileEdit size={18} />
-                    Analisar Proposta
+                    <MessageSquare size={14} /> {sale.status === 'concluida' ? 'Enviar WhatsApp (Recibo)' : 'Enviar WhatsApp (Aprovada)'}
                   </button>
-                ) : (
-                  <button
-                    onClick={() => setSelectedSale(sale)}
-                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-sm"
-                  >
-                    <Eye size={18} />
-                    Ver Detalhes
-                  </button>
-                )}
+
+                  {activeTab === 'pendentes' ? (
+                    <button
+                      onClick={() => setSelectedSale(sale)}
+                      className="w-full py-3 bg-orange-600/10 hover:bg-orange-600 text-orange-500 hover:text-white border border-orange-600/20 hover:border-orange-600 rounded-xl font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-sm"
+                    >
+                      <FileEdit size={18} />
+                      Analisar Proposta
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setSelectedSale(sale)}
+                      className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-sm"
+                    >
+                      <Eye size={18} />
+                      Ver Detalhes
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

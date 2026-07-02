@@ -192,7 +192,6 @@ Prezado(a) *${nome}*, é com enorme orgulho que confirmamos a conclusão da vend
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 💰 *VALORES DA NEGOCIAÇÃO*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-• *Valor Comercial:* ${valorOriginal}
 • *Desconto Aplicado:* ${desconto}
 • *Valor Final da Venda:* ${valorFinal}
 

@@ -6,6 +6,88 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { useReactToPrint } from 'react-to-print';
 
+function convertOklToRgb(colorStr: string): string {
+  if (!colorStr.includes('oklch') && !colorStr.includes('oklab')) {
+    return colorStr;
+  }
+  
+  return colorStr.replace(/(oklch|oklab)\(([^)]+)\)/g, (match, type, content) => {
+    try {
+      const parts = content.replace(/[,/]/g, ' ').trim().split(/\s+/);
+      if (parts.length < 3) return match;
+      
+      let c1 = parseFloat(parts[0]);
+      if (parts[0].endsWith('%')) c1 = parseFloat(parts[0]) / 100;
+      
+      let c2 = parseFloat(parts[1]);
+      if (parts[1].endsWith('%')) c2 = parseFloat(parts[1]) / 100;
+      
+      let c3 = parseFloat(parts[2]);
+      if (parts[2].endsWith('%')) c3 = parseFloat(parts[2]) / 100;
+      
+      let alpha = 1;
+      if (parts[3]) {
+        alpha = parseFloat(parts[3]);
+        if (parts[3].endsWith('%')) alpha = parseFloat(parts[3]) / 100;
+      }
+      
+      let L = c1;
+      let a = 0;
+      let b = 0;
+      
+      if (type === 'oklch') {
+        const chroma = c2;
+        let hueDeg = c3;
+        if (parts[2].endsWith('rad')) {
+          hueDeg = parseFloat(parts[2]) * (180 / Math.PI);
+        } else if (parts[2].endsWith('turn')) {
+          hueDeg = parseFloat(parts[2]) * 360;
+        } else if (parts[2].endsWith('grad')) {
+          hueDeg = parseFloat(parts[2]) * 0.9;
+        }
+        const hueRad = hueDeg * (Math.PI / 180);
+        a = chroma * Math.cos(hueRad);
+        b = chroma * Math.sin(hueRad);
+      } else {
+        a = c2;
+        b = c3;
+      }
+      
+      const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+      const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+      const s_ = L - 0.0894841775 * a - 1.2914855414 * b;
+      
+      const l = l_ * l_ * l_;
+      const m = m_ * m_ * m_;
+      const s = s_ * s_ * s_;
+      
+      let r_lin = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+      let g_lin = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+      let b_lin = -0.0041960863 * l - 0.7034186142 * m + 1.7076147004 * s;
+      
+      const toSRGB = (c: number) => {
+        const sign = c < 0 ? -1 : 1;
+        const absC = Math.abs(c);
+        const res = absC <= 0.0031308 ? 12.92 * absC : 1.055 * Math.pow(absC, 1 / 2.4) - 0.055;
+        return Math.max(0, Math.min(255, Math.round(sign * res * 255)));
+      };
+      
+      const rVal = toSRGB(r_lin);
+      const gVal = toSRGB(g_lin);
+      const bVal = toSRGB(b_lin);
+      
+      if (alpha === 1) {
+        return `rgb(${rVal}, ${gVal}, ${bVal})`;
+      } else {
+        return `rgba(${rVal}, ${gVal}, ${bVal}, ${alpha})`;
+      }
+    } catch (e) {
+      console.warn("Error converting oklch/oklab color:", e);
+      return match;
+    }
+  });
+}
+
 const inlineAllStyles = (source: HTMLElement, target: HTMLElement) => {
   const sourceRootStyle = window.getComputedStyle(source);
   for (let i = 0; i < sourceRootStyle.length; i++) {
@@ -13,11 +95,8 @@ const inlineAllStyles = (source: HTMLElement, target: HTMLElement) => {
     if (propName.startsWith('--')) continue; // Skip custom CSS variables/properties
     
     let val = sourceRootStyle.getPropertyValue(propName);
-    if (val.includes('oklch')) {
-      if (propName === 'color') val = '#000000';
-      else if (propName.includes('background')) val = '#ffffff';
-      else if (propName.includes('border')) val = '#e4e4e7';
-      else continue;
+    if (val.includes('oklch') || val.includes('oklab')) {
+      val = convertOklToRgb(val);
     }
     
     target.style.setProperty(propName, val, sourceRootStyle.getPropertyPriority(propName));
@@ -36,11 +115,8 @@ const inlineAllStyles = (source: HTMLElement, target: HTMLElement) => {
         if (propName.startsWith('--')) continue; // Skip custom CSS variables/properties
         
         let val = computed.getPropertyValue(propName);
-        if (val.includes('oklch')) {
-          if (propName === 'color') val = '#000000';
-          else if (propName.includes('background')) val = '#ffffff';
-          else if (propName.includes('border')) val = '#e4e4e7';
-          else continue;
+        if (val.includes('oklch') || val.includes('oklab')) {
+          val = convertOklToRgb(val);
         }
         
         tgtEl.style.setProperty(
@@ -219,20 +295,36 @@ export default function PurchaseReceiptGenerator({ purchase, onBack, isNew }: Pu
 
       const elementToCapture = iframeDoc.getElementById('purchase-receipt-content') || clonedReceipt;
 
-      const canvas = await html2canvas(elementToCapture, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        height: 1123,
-        windowWidth: 794,
-        windowHeight: 1123,
-        scrollX: 0,
-        scrollY: 0,
-        window: iframe.contentWindow || window,
-        document: iframeDoc
-      } as any);
+      // Temporarily disable all main document stylesheets to completely prevent html2canvas parsing crashes on Tailwind v4 oklch/oklab styles
+      const disabledSheets: boolean[] = [];
+      const sheets = Array.from(document.styleSheets);
+      sheets.forEach((sheet, idx) => {
+        disabledSheets[idx] = sheet.disabled;
+        sheet.disabled = true;
+      });
+
+      let canvas;
+      try {
+        canvas = await html2canvas(elementToCapture, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          width: 794,
+          height: 1123,
+          windowWidth: 794,
+          windowHeight: 1123,
+          scrollX: 0,
+          scrollY: 0,
+          window: iframe.contentWindow || window,
+          document: iframeDoc
+        } as any);
+      } finally {
+        // Re-enable all stylesheets immediately after capture
+        sheets.forEach((sheet, idx) => {
+          sheet.disabled = disabledSheets[idx];
+        });
+      }
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({

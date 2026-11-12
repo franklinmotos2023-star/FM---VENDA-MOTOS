@@ -1522,7 +1522,9 @@ export default function FinanceCalculator({ moto, onConfirm, onCancel, isAdmin, 
           <div>
             <div className="flex justify-between items-start border-b-2 border-zinc-900 pb-6 mb-6" style={{ borderBottom: '2px solid #18181b', paddingBottom: '24px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between' }}>
               <div>
-                <h1 className="text-3xl font-black tracking-tight text-zinc-900" style={{ fontSize: '30px', fontWeight: '900', color: '#18181b', margin: 0 }}>FRANKLIN MOTOS</h1>
+                <div style={{ backgroundColor: '#09090b', padding: '6px 14px', borderRadius: '8px', display: 'inline-block', marginBottom: '6px' }}>
+                  <img src="/logo.png" alt="Franklin Motos" style={{ height: '32px', width: 'auto', display: 'block' }} />
+                </div>
                 <p className="text-xs font-mono font-bold text-zinc-500 uppercase tracking-widest mt-1" style={{ fontSize: '12px', fontWeight: 'bold', color: '#71717a', margin: '4px 0 0 0' }}>Qualidade e Confiança</p>
                 <div className="text-xs text-zinc-600 mt-2" style={{ fontSize: '12px', color: '#52525b', marginTop: '8px' }}>
                   <p style={{ margin: '2px 0' }}>Av. Godofredo Maciel, 3190 - Parangaba</p>

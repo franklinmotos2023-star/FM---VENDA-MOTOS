@@ -144,7 +144,7 @@ export default function AcessorioKanban({ sales }: KanbanProps) {
       </head>
       <body>
         <div class="header">
-          <h1>FM Vendas</h1>
+          <img src="/logo.png" alt="Franklin Motos" style="height: 38px; width: auto; margin-bottom: 8px;" />
           <h2>Recibo de Acessórios/Peças</h2>
           <p>Pedido #${sale.id?.toUpperCase()} - Emitido em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>

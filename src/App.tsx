@@ -12,6 +12,7 @@ import UserProfileModal from './components/UserProfileModal';
 import AcessorioList from './components/AcessorioList';
 import AcessorioForm from './components/AcessorioForm';
 import CartModal from './components/CartModal';
+import OficinaArea from './components/OficinaArea';
 import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench, MessageCircle } from 'lucide-react';
 import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, increment, handleFirestoreError, OperationType } from './firebase';
 
@@ -53,7 +54,7 @@ export default function App() {
   const pathname = location.pathname;
 
   const [isAppLoading, setIsAppLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'welcome' | 'list' | 'add' | 'edit' | 'finance' | 'acessorios' | 'add_acessorio' | 'edit_acessorio'>('welcome');
+  const [currentView, setCurrentView] = useState<'welcome' | 'list' | 'add' | 'edit' | 'finance' | 'acessorios' | 'add_acessorio' | 'edit_acessorio' | 'oficina'>('welcome');
   const [adminTab, setAdminTab] = useState<'estoque' | 'vendas' | 'taxas' | 'compra'>('estoque');
   const [motos, setMotos] = useState<Moto[]>([]);
   const [acessorios, setAcessorios] = useState<Acessorio[]>([]);
@@ -127,6 +128,9 @@ export default function App() {
          const a = acessorios.find(a => a.id === id);
          if (a && (!selectedAcessorio || selectedAcessorio.id !== id)) setSelectedAcessorio(a);
        }
+    }
+    else if (pathname === '/oficina' || pathname.startsWith('/oficina')) {
+       newView = 'oficina';
     }
 
     if (newView !== currentView) {
@@ -472,8 +476,13 @@ export default function App() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="fixed inset-0 z-[100] bg-zinc-950 flex flex-col items-center justify-center"
+            className="fixed inset-0 z-[100] bg-zinc-950 flex flex-col items-center justify-center p-4"
           >
+            <img 
+              src="/logo.png" 
+              alt="Franklin Motos" 
+              className="h-10 md:h-12 w-auto object-contain mb-8 drop-shadow-[0_0_25px_rgba(234,88,12,0.4)]" 
+            />
             <motion.div
               animate={{
                 x: [-15, 15, -15],
@@ -513,18 +522,33 @@ export default function App() {
           
           {/* Left Area: Logo and Primary Navigation Tabs (Motos & Acessórios) */}
           <div className="flex items-center gap-4 md:gap-8 min-w-0">
-            <div className="flex flex-col cursor-pointer shrink-0" onClick={() => { navigate(isAdmin ? '/motos' : '/'); setAdminTab('estoque'); }}>
-              <h1 className="text-xl md:text-2xl font-black tracking-tighter uppercase text-white leading-none">
-                FM <span className="text-orange-600">- Vendas</span>
-              </h1>
-              <span className="hidden md:block text-zinc-400 text-[10px] font-bold uppercase tracking-widest mt-1">
+            <div 
+              className="flex items-center gap-3 cursor-pointer shrink-0 group py-1" 
+              onClick={() => { navigate(isAdmin ? '/motos' : '/'); setAdminTab('estoque'); }}
+            >
+              <img 
+                src="/logo.png" 
+                alt="Franklin Motos" 
+                className="h-8 md:h-10 w-auto object-contain transition-transform group-hover:scale-105 duration-200" 
+              />
+              <span className="hidden lg:inline-block text-zinc-400 text-[10px] font-bold uppercase tracking-widest pl-2 border-l border-zinc-800">
                 Catálogo Online
               </span>
             </div>
 
-            {/* Main Tabs (Motos & Acessórios) are now placed closer to the Logo */}
+            {/* Main Tabs (Oficina, Motos & Acessórios) are now placed closer to the Logo */}
             {isAdmin ? (
               <div className="hidden md:flex bg-zinc-900 rounded-xl p-1 border border-zinc-800 shrink-0">
+                <button
+                  onClick={() => { navigate('/oficina'); }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
+                    currentView === 'oficina'
+                      ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
+                      : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-800'
+                  }`}
+                >
+                  <Wrench size={16} /> Oficina
+                </button>
                 <button
                   onClick={() => { navigate('/motos'); setAdminTab('estoque'); }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
@@ -549,6 +573,16 @@ export default function App() {
             ) : (
               currentView !== 'welcome' && (
                 <div className="hidden md:flex bg-zinc-900/60 rounded-xl p-1 border border-zinc-800 shrink-0">
+                  <button
+                    onClick={() => navigate('/oficina')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
+                      currentView === 'oficina' 
+                        ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
+                        : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-800'
+                    }`}
+                  >
+                    Oficina
+                  </button>
                   <button
                     onClick={() => { navigate('/motos'); setAdminTab('estoque'); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
@@ -583,7 +617,7 @@ export default function App() {
                   <button
                     onClick={() => { navigate('/motos'); setAdminTab('vendas'); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
-                      adminTab === 'vendas' && currentView !== 'acessorios'
+                      adminTab === 'vendas' && currentView !== 'acessorios' && currentView !== 'oficina'
                         ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
                         : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-800'
                     }`}
@@ -593,7 +627,7 @@ export default function App() {
                   <button
                     onClick={() => { navigate('/motos'); setAdminTab('compra'); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
-                      adminTab === 'compra' 
+                      adminTab === 'compra' && currentView !== 'acessorios' && currentView !== 'oficina'
                         ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
                         : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-800'
                     }`}
@@ -603,7 +637,7 @@ export default function App() {
                   <button
                     onClick={() => { navigate('/motos'); setAdminTab('taxas'); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
-                      adminTab === 'taxas' 
+                      adminTab === 'taxas' && currentView !== 'acessorios' && currentView !== 'oficina'
                         ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]' 
                         : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-800'
                     }`}
@@ -618,16 +652,25 @@ export default function App() {
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     className="flex items-center gap-1.5 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider"
                   >
+                    {currentView === 'oficina' && <><Wrench size={14} /> Oficina</>}
                     {currentView === 'acessorios' && <><Wrench size={14} /> Acessórios</>}
-                    {currentView !== 'acessorios' && adminTab === 'estoque' && <><Package size={14} /> Motos</>}
-                    {currentView !== 'acessorios' && adminTab === 'vendas' && <><History size={14} /> Vendas</>}
-                    {currentView !== 'acessorios' && adminTab === 'compra' && <><ShoppingCart size={14} /> Compra</>}
-                    {currentView !== 'acessorios' && adminTab === 'taxas' && <><Percent size={14} /> Taxas</>}
+                    {currentView !== 'acessorios' && currentView !== 'oficina' && adminTab === 'estoque' && <><Package size={14} /> Motos</>}
+                    {currentView !== 'acessorios' && currentView !== 'oficina' && adminTab === 'vendas' && <><History size={14} /> Vendas</>}
+                    {currentView !== 'acessorios' && currentView !== 'oficina' && adminTab === 'compra' && <><ShoppingCart size={14} /> Compra</>}
+                    {currentView !== 'acessorios' && currentView !== 'oficina' && adminTab === 'taxas' && <><Percent size={14} /> Taxas</>}
                     <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {isMobileMenuOpen && (
                     <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
+                      <button
+                        onClick={() => { navigate('/oficina'); setIsMobileMenuOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
+                          currentView === 'oficina' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                        }`}
+                      >
+                        <Wrench size={16} /> Oficina
+                      </button>
                       <button
                         onClick={() => { navigate('/motos'); setAdminTab('estoque'); setIsMobileMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
@@ -647,7 +690,7 @@ export default function App() {
                       <button
                         onClick={() => { navigate('/motos'); setAdminTab('vendas'); setIsMobileMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
-                          adminTab === 'vendas' && currentView !== 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                          adminTab === 'vendas' && currentView !== 'acessorios' && currentView !== 'oficina' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                         }`}
                       >
                         <History size={16} /> Vendas
@@ -655,7 +698,7 @@ export default function App() {
                       <button
                         onClick={() => { navigate('/motos'); setAdminTab('compra'); setIsMobileMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
-                          adminTab === 'compra' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                          adminTab === 'compra' && currentView !== 'acessorios' && currentView !== 'oficina' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                         }`}
                       >
                         <ShoppingCart size={16} /> Compra
@@ -663,7 +706,7 @@ export default function App() {
                       <button
                         onClick={() => { navigate('/motos'); setAdminTab('taxas'); setIsMobileMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
-                          adminTab === 'taxas' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                          adminTab === 'taxas' && currentView !== 'acessorios' && currentView !== 'oficina' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                         }`}
                       >
                         <Percent size={16} /> Taxas
@@ -682,6 +725,7 @@ export default function App() {
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         className="flex items-center gap-1.5 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider"
                       >
+                        {currentView === 'oficina' && <><Wrench size={14} /> Oficina</>}
                         {currentView === 'list' && <><Package size={14} /> Motos</>}
                         {currentView === 'acessorios' && <><Wrench size={14} /> Acessórios</>}
                         <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
@@ -689,6 +733,14 @@ export default function App() {
                       
                       {isMobileMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
+                          <button
+                            onClick={() => { navigate('/oficina'); setIsMobileMenuOpen(false); }}
+                            className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
+                              currentView === 'oficina' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                            }`}
+                          >
+                            <Wrench size={16} /> Oficina
+                          </button>
                           <button
                             onClick={() => { navigate('/motos'); setAdminTab('estoque'); setIsMobileMenuOpen(false); }}
                             className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
@@ -764,13 +816,15 @@ export default function App() {
         {currentView === 'welcome' && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-1000">
             <div className="text-center space-y-8 max-w-2xl w-full px-4">
-              <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-orange-700 rounded-3xl mx-auto shadow-2xl flex items-center justify-center border-4 border-zinc-900 shadow-orange-600/20">
-                <ScooterIcon size={48} className="text-black" />
+              <div className="flex flex-col items-center justify-center">
+                <div className="p-5 md:p-6 bg-zinc-900/90 border border-zinc-800 rounded-3xl shadow-2xl shadow-orange-600/10 flex items-center justify-center max-w-sm w-full mx-auto backdrop-blur-xl">
+                  <img 
+                    src="/logo.png" 
+                    alt="Franklin Motos" 
+                    className="w-full h-auto max-h-20 md:max-h-24 object-contain drop-shadow-[0_0_20px_rgba(234,88,12,0.35)]" 
+                  />
+                </div>
               </div>
-
-              <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tight">
-                FM <span className="text-orange-600">- VENDAS</span>
-              </h2>
               
               <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 shadow-2xl">
                 <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider mb-2">Bem-vindo ao nosso catálogo online!</h3>
@@ -779,6 +833,19 @@ export default function App() {
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    onClick={() => navigate('/oficina')}
+                    className="flex-1 p-8 bg-zinc-900 border border-zinc-800 hover:border-orange-500 rounded-2xl group transition-all duration-300 shadow-lg hover:shadow-orange-600/10 flex flex-col items-center justify-center gap-6"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-orange-500 group-hover:bg-orange-600/10 transition-colors">
+                      <ScooterIcon size={40} />
+                    </div>
+                    <div className="text-center">
+                      <span className="font-extrabold text-white tracking-widest uppercase md:text-lg block">OFICINA</span>
+                      <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider block mt-1">Especialistas Scooter</span>
+                    </div>
+                  </button>
+
                   <button
                     onClick={() => navigate('/motos')}
                     className="flex-1 p-8 bg-zinc-900 border border-zinc-800 hover:border-orange-500 rounded-2xl group transition-all duration-300 shadow-lg hover:shadow-orange-600/10 flex flex-col items-center justify-center gap-6"
@@ -869,6 +936,13 @@ export default function App() {
             onCancel={() => navigate('/motos')}
             isAdmin={isAdmin}
             userData={userData}
+          />
+        )}
+
+        {currentView === 'oficina' && (
+          <OficinaArea
+            initialSubTab={pathname.includes('agendamento') || pathname.includes('manutencao') ? 'manutencao' : 'historia'}
+            onNavigateHome={() => navigate('/motos')}
           />
         )}
       </main>

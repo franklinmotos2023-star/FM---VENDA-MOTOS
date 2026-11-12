@@ -426,15 +426,12 @@ export default function PurchaseReceiptGenerator({ purchase, onBack, isNew }: Pu
           {/* Header */}
           <div className="flex justify-between items-start mb-10 pb-8 border-b-4 border-orange-600">
             <div className="flex items-center gap-4">
-              <div className="bg-black p-4 rounded-2xl transform -skew-x-6 shadow-lg">
-                <Bike size={48} className="text-orange-600 transform skew-x-6" />
+              <div className="bg-black p-3 px-5 rounded-2xl shadow-lg flex items-center justify-center">
+                <img src="/logo.png" alt="Franklin Motos" className="h-11 w-auto object-contain" />
               </div>
               <div>
-                <h1 className="text-4xl font-black text-black tracking-tighter uppercase leading-none">
-                  Franklin <span className="text-orange-600">Motos</span>
-                </h1>
-                <p className="text-zinc-500 text-xs font-bold uppercase tracking-[0.3em] mt-1">Comércio de Motocicletas</p>
-                <div className="mt-4 space-y-0.5 text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-[0.3em]">Comércio de Motocicletas</p>
+                <div className="mt-2 space-y-0.5 text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
                   <p className="flex items-center gap-1.5"><MapPin size={10} className="text-orange-600" /> AV. CARNEIRO DE MENDONÇA 1606</p>
                   <p className="flex items-center gap-1.5"><Phone size={10} className="text-orange-600" /> (85) 3233-2200 | CNPJ: 08.967.579/0001-78</p>
                 </div>

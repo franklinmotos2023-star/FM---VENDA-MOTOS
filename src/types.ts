@@ -26,6 +26,35 @@ export type Moto = {
   equipamentos?: string[];
   planos?: PlanoFinanceiro[];
   arquivada?: boolean;
+  precoPromocionalBlack?: number;
+  blackFridayBadge?: string;
+  destaqueBlackFriday?: boolean;
+  cupomAplicavel?: string;
+};
+
+export type BlackFridayCoupon = {
+  id: string;
+  code: string;
+  discountText: string;
+  description: string;
+  conditions: string;
+  validUntil: string;
+  active: boolean;
+  eligibleModels?: string[];
+  tag?: string;
+};
+
+export type BlackFridayConfig = {
+  enabled: boolean;
+  title: string;
+  slogan: string;
+  endDate: string;
+  featuredMotoId?: string;
+  heroDiscountText?: string;
+  whatsappNumber: string;
+  whatsappMessageTemplate: string;
+  coupons: BlackFridayCoupon[];
+  promoDiscounts?: Record<string, { promoPrice: number; originalPrice?: number; discountBadge?: string; active: boolean }>;
 };
 
 export type SaleData = {

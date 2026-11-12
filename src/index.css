@@ -1,5 +1,47 @@
 @import "tailwindcss";
 
+@layer base {
+  :root {
+    --brand-black: #080808;
+    --brand-card: #191919;
+    --brand-orange: #FF4D00;
+  }
+}
+
+.font-display {
+  font-family: 'Barlow Condensed', 'Anton', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.font-body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Speed stripe pattern */
+.bg-speed-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 77, 0, 0.03),
+    rgba(255, 77, 0, 0.03) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}
+
+.bg-dark-grid {
+  background-size: 32px 32px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+.orange-glow {
+  box-shadow: 0 0 35px -5px rgba(255, 77, 0, 0.45);
+}
+
+.orange-glow-sm {
+  box-shadow: 0 0 15px -2px rgba(255, 77, 0, 0.35);
+}
+
 /* Hide number input spinners */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Moto, UserProfile, Acessorio, CartItem } from './types';
+import { Moto, UserProfile, Acessorio, CartItem, BlackFridayConfig } from './types';
 import MotoList from './components/MotoList';
 import MotoForm from './components/MotoForm';
 import FinanceCalculator from './components/FinanceCalculator';
@@ -13,7 +13,10 @@ import AcessorioList from './components/AcessorioList';
 import AcessorioForm from './components/AcessorioForm';
 import CartModal from './components/CartModal';
 import OficinaArea from './components/OficinaArea';
-import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench, MessageCircle } from 'lucide-react';
+import BlackFridayLanding from './components/BlackFridayLanding';
+import AdminBlackFriday from './components/AdminBlackFriday';
+import { DEFAULT_BLACK_FRIDAY_CONFIG } from './services/blackFridayService';
+import { Bike, LogIn, LogOut, User as UserIcon, History, Percent, Package, ShoppingCart, Trash2, Menu, ChevronDown, Wrench, MessageCircle, Flame } from 'lucide-react';
 import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, increment, handleFirestoreError, OperationType } from './firebase';
 
 const ScooterIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -69,6 +72,19 @@ export default function App() {
   const [userData, setUserData] = useState<any>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [blackFridayConfig, setBlackFridayConfig] = useState<BlackFridayConfig>(DEFAULT_BLACK_FRIDAY_CONFIG);
+  const [showAdminBlackFriday, setShowAdminBlackFriday] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'blackFriday'), (docSnap) => {
+      if (docSnap.exists()) {
+        setBlackFridayConfig({ ...DEFAULT_BLACK_FRIDAY_CONFIG, ...docSnap.data() } as BlackFridayConfig);
+      }
+    }, (err) => {
+      console.warn("Firestore error on 'settings/blackFriday' listener, using defaults:", err);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     let newView = currentView;
@@ -515,9 +531,27 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="min-h-screen bg-zinc-950 font-sans text-zinc-100 selection:bg-orange-500 selection:text-black">
-      {/* Header */}
-      <header className="bg-black border-b border-orange-600 shadow-2xl print:hidden animate-in fade-in duration-500">
+      {currentView === 'welcome' && blackFridayConfig.enabled ? (
+        <div className="min-h-screen bg-[#080808]">
+          <BlackFridayLanding
+            motos={motos}
+            config={blackFridayConfig}
+            isAdmin={isAdmin}
+            onOpenAdminBlackFriday={() => setShowAdminBlackFriday(true)}
+            onSelectMotoDetail={(moto) => {
+              setSelectedMoto(moto);
+              navigate(`/motos/${moto.id}`);
+            }}
+            onSimulateFinance={(moto) => {
+              setSelectedMoto(moto);
+              navigate(`/motos/simular/${moto.id}`);
+            }}
+          />
+        </div>
+      ) : (
+        <div className="min-h-screen bg-zinc-950 font-sans text-zinc-100 selection:bg-orange-500 selection:text-black">
+        {/* Header */}
+        <header className="bg-black border-b border-orange-600 shadow-2xl print:hidden animate-in fade-in duration-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
           
           {/* Left Area: Logo and Primary Navigation Tabs (Motos & Acessórios) */}
@@ -569,10 +603,28 @@ export default function App() {
                 >
                   <Wrench size={16} /> Acessórios
                 </button>
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider bg-[#FF4D00] text-black shadow-md hover:bg-[#e04400]"
+                >
+                  <Flame size={15} /> Ver Black
+                </button>
+                <button
+                  onClick={() => setShowAdminBlackFriday(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider text-[#FF4D00] hover:bg-[#FF4D00]/10 border border-[#FF4D00]/30"
+                >
+                  Gerenciar Black
+                </button>
               </div>
             ) : (
               currentView !== 'welcome' && (
                 <div className="hidden md:flex bg-zinc-900/60 rounded-xl p-1 border border-zinc-800 shrink-0">
+                  <button
+                    onClick={() => navigate('/')}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider bg-[#FF4D00] text-black shadow-md hover:bg-[#e04400]"
+                  >
+                    <Flame size={14} /> Black Friday
+                  </button>
                   <button
                     onClick={() => navigate('/oficina')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
@@ -711,6 +763,18 @@ export default function App() {
                       >
                         <Percent size={16} /> Taxas
                       </button>
+                      <button
+                        onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider bg-[#FF4D00]/10 text-[#FF4D00] hover:bg-[#FF4D00]/20"
+                      >
+                        <Flame size={16} /> Ver Black Friday
+                      </button>
+                      <button
+                        onClick={() => { setShowAdminBlackFriday(true); setIsMobileMenuOpen(false); }}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider text-[#FF4D00] hover:bg-zinc-800"
+                      >
+                        <Flame size={16} /> Gerenciar Black
+                      </button>
                     </div>
                   )}
                 </div>
@@ -733,6 +797,12 @@ export default function App() {
                       
                       {isMobileMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
+                          <button
+                            onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider bg-[#FF4D00] text-black font-display font-black"
+                          >
+                            <Flame size={16} /> Black Friday
+                          </button>
                           <button
                             onClick={() => { navigate('/oficina'); setIsMobileMenuOpen(false); }}
                             className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
@@ -958,7 +1028,19 @@ export default function App() {
         <span className="absolute right-full mr-4 max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap bg-zinc-900 border border-zinc-800 px-0 py-2 rounded-xl text-xs font-bold text-white group-hover:px-4">
           Tira Dúvidas / Contato
         </span>
-      </a>
+        </a>
+        </div>
+      )}
+
+      {/* Admin Black Friday Modal */}
+      {showAdminBlackFriday && (
+        <AdminBlackFriday
+          config={blackFridayConfig}
+          motos={motos}
+          onClose={() => setShowAdminBlackFriday(false)}
+          onSaveConfig={(updated) => setBlackFridayConfig(updated)}
+        />
+      )}
 
       {/* Cart Modal */}
       {isCartOpen && (
@@ -1011,7 +1093,6 @@ export default function App() {
           </div>
         </div>
       )}
-    </div>
     </>
   );
 }

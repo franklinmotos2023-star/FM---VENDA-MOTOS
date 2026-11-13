@@ -15,9 +15,9 @@ export const DEFAULT_BLACK_FRIDAY_CONFIG: BlackFridayConfig = {
     {
       id: 'cupom-blackfranklin',
       code: 'BLACKFRANKLIN',
-      discountText: 'R$ 1.000 OFF',
+      discountText: 'R$ 100 OFF',
       description: 'Desconto direto no valor à vista ou entrada no financiamento.',
-      conditions: 'Válido para todas as motos de média e alta cilindrada em estoque enquanto durar a campanha.',
+      conditions: 'Válido para todas as motos e scooters em estoque enquanto durar a campanha.',
       validUntil: '30/11/2026',
       active: true,
       tag: 'OFERTA PRINCIPAL'
@@ -35,8 +35,8 @@ export const DEFAULT_BLACK_FRIDAY_CONFIG: BlackFridayConfig = {
     {
       id: 'cupom-acelerablack',
       code: 'ACELERABLACK',
-      discountText: 'CAPACETE PRO + TANQUE CHEIO',
-      description: 'Combo de boas-vindas: saia da loja com capacete novo e tanque abastecido.',
+      discountText: 'CAPACETE TH7 DE BRINDE',
+      description: 'Ganhe um capacete TH7 exclusivo de brinde ao fechar negócio.',
       conditions: 'Válido para qualquer motocicleta do estoque. Aplicável no ato da assinatura da proposta.',
       validUntil: '30/11/2026',
       active: true,

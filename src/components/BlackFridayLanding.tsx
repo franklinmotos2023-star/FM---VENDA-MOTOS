@@ -293,36 +293,23 @@ export default function BlackFridayLanding({
 
           {/* Quick Nav Anchors */}
           <nav className="hidden md:flex items-center gap-1 lg:gap-2 text-xs font-bold uppercase tracking-wider text-zinc-300">
-            <a 
-              href="#ofertas" 
-              className="px-3 py-2 rounded-lg hover:text-[#FF4D00] hover:bg-[#191919] transition-all"
-            >
-              Ofertas Black
-            </a>
-            <a 
-              href="#cupons" 
-              className="px-3 py-2 rounded-lg hover:text-[#FF4D00] hover:bg-[#191919] transition-all flex items-center gap-1.5"
-            >
-              <Tag size={14} className="text-[#FF4D00]" />
-              Cupons
-            </a>
-            <a 
-              href="#catalogo" 
-              className="px-3 py-2 rounded-lg hover:text-[#FF4D00] hover:bg-[#191919] transition-all"
-            >
-              Estoque Completo
-            </a>
-            <a 
-              href="#financiamento" 
-              className="px-3 py-2 rounded-lg hover:text-[#FF4D00] hover:bg-[#191919] transition-all"
-            >
-              Simulação & Troca
-            </a>
             <button 
               onClick={() => navigate('/oficina')}
-              className="px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-[#191919] transition-all flex items-center gap-1"
+              className="px-4 py-2 rounded-lg text-zinc-300 hover:text-[#FF4D00] hover:bg-[#191919] transition-all flex items-center gap-1.5"
             >
               <Wrench size={14} /> Oficina
+            </button>
+            <a 
+              href="#ofertas" 
+              className="px-4 py-2 rounded-lg text-zinc-300 hover:text-[#FF4D00] hover:bg-[#191919] transition-all flex items-center gap-1.5"
+            >
+              <Bike size={14} /> Motos
+            </a>
+            <button 
+              onClick={() => navigate('/acessorios')}
+              className="px-4 py-2 rounded-lg text-zinc-300 hover:text-[#FF4D00] hover:bg-[#191919] transition-all flex items-center gap-1.5"
+            >
+              <Wrench size={14} /> Peças
             </button>
           </nav>
 

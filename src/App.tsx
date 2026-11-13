@@ -570,7 +570,7 @@ export default function App() {
               </span>
             </div>
 
-            {/* Main Tabs (Oficina, Motos & Acessórios) are now placed closer to the Logo */}
+            {/* Main Tabs (Oficina, Motos & Peças) */}
             {isAdmin ? (
               <div className="hidden md:flex bg-zinc-900 rounded-xl p-1 border border-zinc-800 shrink-0">
                 <button
@@ -601,30 +601,12 @@ export default function App() {
                       : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-800'
                   }`}
                 >
-                  <Wrench size={16} /> Acessórios
-                </button>
-                <button
-                  onClick={() => navigate('/')}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider bg-[#FF4D00] text-black shadow-md hover:bg-[#e04400]"
-                >
-                  <Flame size={15} /> Ver Black
-                </button>
-                <button
-                  onClick={() => setShowAdminBlackFriday(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider text-[#FF4D00] hover:bg-[#FF4D00]/10 border border-[#FF4D00]/30"
-                >
-                  Gerenciar Black
+                  <Wrench size={16} /> Peças
                 </button>
               </div>
             ) : (
               currentView !== 'welcome' && (
                 <div className="hidden md:flex bg-zinc-900/60 rounded-xl p-1 border border-zinc-800 shrink-0">
-                  <button
-                    onClick={() => navigate('/')}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider bg-[#FF4D00] text-black shadow-md hover:bg-[#e04400]"
-                  >
-                    <Flame size={14} /> Black Friday
-                  </button>
                   <button
                     onClick={() => navigate('/oficina')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${
@@ -653,7 +635,7 @@ export default function App() {
                         : 'text-zinc-400 hover:text-orange-500 hover:bg-zinc-800'
                     }`}
                   >
-                    Acessórios
+                    Peças
                   </button>
                 </div>
               )
@@ -763,18 +745,6 @@ export default function App() {
                       >
                         <Percent size={16} /> Taxas
                       </button>
-                      <button
-                        onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
-                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider bg-[#FF4D00]/10 text-[#FF4D00] hover:bg-[#FF4D00]/20"
-                      >
-                        <Flame size={16} /> Ver Black Friday
-                      </button>
-                      <button
-                        onClick={() => { setShowAdminBlackFriday(true); setIsMobileMenuOpen(false); }}
-                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider text-[#FF4D00] hover:bg-zinc-800"
-                      >
-                        <Flame size={16} /> Gerenciar Black
-                      </button>
                     </div>
                   )}
                 </div>
@@ -791,18 +761,12 @@ export default function App() {
                       >
                         {currentView === 'oficina' && <><Wrench size={14} /> Oficina</>}
                         {currentView === 'list' && <><Package size={14} /> Motos</>}
-                        {currentView === 'acessorios' && <><Wrench size={14} /> Acessórios</>}
+                        {currentView === 'acessorios' && <><Wrench size={14} /> Peças</>}
                         <ChevronDown size={14} className={`transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
                       </button>
                       
                       {isMobileMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
-                          <button
-                            onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
-                            className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider bg-[#FF4D00] text-black font-display font-black"
-                          >
-                            <Flame size={16} /> Black Friday
-                          </button>
                           <button
                             onClick={() => { navigate('/oficina'); setIsMobileMenuOpen(false); }}
                             className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all uppercase tracking-wider ${
@@ -825,7 +789,7 @@ export default function App() {
                               currentView === 'acessorios' ? 'bg-orange-600/10 text-orange-500' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                             }`}
                           >
-                            <Wrench size={16} /> Acessórios
+                            <Wrench size={16} /> Peças
                           </button>
                         </div>
                       )}

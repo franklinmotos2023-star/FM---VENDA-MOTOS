@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Moto, UserProfile, Acessorio, CartItem, BlackFridayConfig, BlackFridayCoupon } from './types';
@@ -15,6 +15,7 @@ import CartModal from './components/CartModal';
 import OficinaArea from './components/OficinaArea';
 import AdminBlackFriday from './components/AdminBlackFriday';
 import { DEFAULT_BLACK_FRIDAY_CONFIG, trackBlackFridayEvent } from './services/blackFridayService';
+import { PROMO_KITS_TRANSMISSAO } from './data/promoKitsTransmissao';
 import { Bike, LogIn, LogOut, History, Percent, ShoppingCart, Trash2, ChevronDown, Wrench, MessageCircle, Flame, Copy, Check, Tag } from 'lucide-react';
 import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, increment, handleFirestoreError, OperationType } from './firebase';
 
@@ -82,6 +83,19 @@ export default function App() {
       return null;
     }
   });
+  const [kitsSeededInDb, setKitsSeededInDb] = useState<boolean | null>(null);
+
+  const displayedAcessorios = useMemo(() => {
+    if (kitsSeededInDb === true) {
+      return acessorios;
+    }
+    const existingIds = new Set(acessorios.map(a => a.id));
+    const existingNames = new Set(acessorios.map(a => a.nome.trim().toLowerCase()));
+    const missingKits = PROMO_KITS_TRANSMISSAO.filter(
+      kit => !existingIds.has(kit.id) && !existingNames.has(kit.nome.trim().toLowerCase())
+    );
+    return [...acessorios, ...missingKits];
+  }, [acessorios, kitsSeededInDb]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'blackFriday'), (docSnap) => {
@@ -140,16 +154,16 @@ export default function App() {
     else if (pathname.includes('/editar') && pathname.startsWith('/acessorios')) {
        newView = 'edit_acessorio';
        const id = pathname.split('/').slice(-2, -1)[0];
-       if (acessorios.length > 0) {
-         const a = acessorios.find(a => a.id === id);
+       if (displayedAcessorios.length > 0) {
+         const a = displayedAcessorios.find(a => a.id === id);
          if (a && (!selectedAcessorio || selectedAcessorio.id !== id)) setSelectedAcessorio(a);
        }
     }
     else if (pathname.match(/^\/acessorios\/[^/]+$/)) {
        newView = 'acessorios';
        const id = pathname.split('/').pop();
-       if (acessorios.length > 0) {
-         const a = acessorios.find(a => a.id === id);
+       if (displayedAcessorios.length > 0) {
+         const a = displayedAcessorios.find(a => a.id === id);
          if (a && (!selectedAcessorio || selectedAcessorio.id !== id)) setSelectedAcessorio(a);
        }
     }
@@ -160,7 +174,7 @@ export default function App() {
     if (newView !== currentView) {
       setCurrentView(newView);
     }
-  }, [pathname, motos, acessorios, selectedMoto, selectedAcessorio, isAdmin, currentView]);
+  }, [pathname, motos, displayedAcessorios, selectedMoto, selectedAcessorio, isAdmin, currentView]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -210,16 +224,7 @@ export default function App() {
     ];
 
     const initialAcessorios: Acessorio[] = [
-      {
-        id: 'fallback-capacete',
-        nome: 'Capacete Pro',
-        aplicacao: 'Geral',
-        descricao: 'Capacete de alta segurança e ventilação',
-        preco: 180,
-        emPromocao: false,
-        estoque: 10,
-        fotos: []
-      }
+      ...PROMO_KITS_TRANSMISSAO
     ];
 
     const q = query(collection(db, 'motos'), orderBy('marcaModelo'));
@@ -248,11 +253,46 @@ export default function App() {
       setAcessorios(initialAcessorios);
     });
 
+    const unsubSeedFlag = onSnapshot(doc(db, 'settings', 'kitsTransmissaoSeedV1'), (docSnap) => {
+      setKitsSeededInDb(docSnap.exists());
+    }, (error) => {
+      console.warn("Firestore error on 'settings/kitsTransmissaoSeedV1':", error);
+      setKitsSeededInDb(false);
+    });
+
     return () => {
       unsubscribe();
       unsubscribeAcessorios();
+      unsubSeedFlag();
     };
   }, [isAdmin]);
+
+  useEffect(() => {
+    const seedPromoKitsToFirestore = async () => {
+      if (!isAdmin || kitsSeededInDb !== false) return;
+      try {
+        const snapshot = await getDocs(collection(db, 'acessorios'));
+        const existingIds = new Set(snapshot.docs.map(d => d.id));
+        const existingNames = new Set(snapshot.docs.map(d => String(d.data().nome || '').trim().toLowerCase()));
+
+        for (const kit of PROMO_KITS_TRANSMISSAO) {
+          if (!existingIds.has(kit.id) && !existingNames.has(kit.nome.trim().toLowerCase())) {
+            const { id, ...kitData } = kit;
+            await setDoc(doc(db, 'acessorios', id), kitData);
+          }
+        }
+
+        await setDoc(doc(db, 'settings', 'kitsTransmissaoSeedV1'), {
+          seededAt: new Date().toISOString(),
+          count: PROMO_KITS_TRANSMISSAO.length
+        });
+      } catch (error) {
+        console.error('Erro ao salvar kits de transmissão promocionais no Firestore:', error);
+      }
+    };
+
+    seedPromoKitsToFirestore();
+  }, [isAdmin, kitsSeededInDb]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -956,7 +996,7 @@ export default function App() {
 
         {currentView === 'acessorios' && (
           <AcessorioList
-            acessorios={acessorios}
+            acessorios={displayedAcessorios}
             isAdmin={isAdmin}
             onAdd={() => setCurrentView('add_acessorio')}
             onEdit={(acessorio) => {

@@ -57,17 +57,21 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
   };
 
   const getBlackFridayPrice = (acessorio: Acessorio) => {
-    const tenPercentOff = Math.round(acessorio.preco * 0.9 * 100) / 100;
-    if (acessorio.emPromocao && acessorio.precoPromocional && acessorio.precoPromocional < tenPercentOff) {
+    if (
+      acessorio.emPromocao &&
+      typeof acessorio.precoPromocional === 'number' &&
+      acessorio.precoPromocional > 0 &&
+      acessorio.precoPromocional < acessorio.preco
+    ) {
       return acessorio.precoPromocional;
     }
-    return tenPercentOff;
+    return Math.round(acessorio.preco * 0.9 * 100) / 100;
   };
 
   const getDiscountPercent = (acessorio: Acessorio) => {
     const finalPrice = getBlackFridayPrice(acessorio);
-    if (acessorio.preco <= 0) return 10;
-    return Math.max(10, Math.round(((acessorio.preco - finalPrice) / acessorio.preco) * 100));
+    if (acessorio.preco <= 0) return 0;
+    return Math.max(0, Math.round(((acessorio.preco - finalPrice) / acessorio.preco) * 100));
   };
 
   const nextImage = (e: React.MouseEvent, acessorioId: string, maxImages: number) => {
@@ -204,13 +208,13 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="text-xs font-bold uppercase tracking-widest text-[#FF4D00] block mb-1">
-            Black Friday Franklin Motos · 10% OFF em toda a loja
+            Black Friday Franklin Motos · Promoções Imperdíveis
           </span>
           <h2 className="font-display text-3xl md:text-4xl font-black text-white uppercase tracking-tight flex items-center gap-3">
             <Tag className="text-[#FF4D00]" size={28} />
             Peças e <span className="text-[#FF4D00]">Acessórios</span>
           </h2>
-          <p className="text-zinc-400 text-sm mt-1 font-medium">Todas as peças e acessórios com 10% de desconto na Black Friday</p>
+          <p className="text-zinc-400 text-sm mt-1 font-medium">Kits de transmissão com R$ 30 de desconto e peças selecionadas na Black Friday</p>
         </div>
         
         {isAdmin && (

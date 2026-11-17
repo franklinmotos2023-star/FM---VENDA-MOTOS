@@ -23,11 +23,15 @@ export default function CartModal({
   const config = useAcessoriosConfig();
 
   const getBlackFridayPrice = (acessorio: CartItem['acessorio']) => {
-    const tenPercentOff = Math.round(acessorio.preco * 0.9 * 100) / 100;
-    if (acessorio.emPromocao && acessorio.precoPromocional && acessorio.precoPromocional < tenPercentOff) {
+    if (
+      acessorio.emPromocao &&
+      typeof acessorio.precoPromocional === 'number' &&
+      acessorio.precoPromocional > 0 &&
+      acessorio.precoPromocional < acessorio.preco
+    ) {
       return acessorio.precoPromocional;
     }
-    return tenPercentOff;
+    return Math.round(acessorio.preco * 0.9 * 100) / 100;
   };
 
   const formatCurrency = (value: number) => {

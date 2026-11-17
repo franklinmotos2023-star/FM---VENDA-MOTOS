@@ -56,6 +56,20 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const getBlackFridayPrice = (acessorio: Acessorio) => {
+    const tenPercentOff = Math.round(acessorio.preco * 0.9 * 100) / 100;
+    if (acessorio.emPromocao && acessorio.precoPromocional && acessorio.precoPromocional < tenPercentOff) {
+      return acessorio.precoPromocional;
+    }
+    return tenPercentOff;
+  };
+
+  const getDiscountPercent = (acessorio: Acessorio) => {
+    const finalPrice = getBlackFridayPrice(acessorio);
+    if (acessorio.preco <= 0) return 10;
+    return Math.max(10, Math.round(((acessorio.preco - finalPrice) / acessorio.preco) * 100));
+  };
+
   const nextImage = (e: React.MouseEvent, acessorioId: string, maxImages: number) => {
     e.stopPropagation();
     setCurrentImageIndices(prev => ({
@@ -189,17 +203,20 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-            <Tag className="text-orange-500" size={32} />
-            Acessórios
+          <span className="text-xs font-bold uppercase tracking-widest text-[#FF4D00] block mb-1">
+            Black Friday Franklin Motos · 10% OFF em toda a loja
+          </span>
+          <h2 className="font-display text-3xl md:text-4xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+            <Tag className="text-[#FF4D00]" size={28} />
+            Peças e <span className="text-[#FF4D00]">Acessórios</span>
           </h2>
-          <p className="text-zinc-400 text-sm mt-1 font-bold">Equipe sua moto com os melhores acessórios</p>
+          <p className="text-zinc-400 text-sm mt-1 font-medium">Todas as peças e acessórios com 10% de desconto na Black Friday</p>
         </div>
         
         {isAdmin && (
           <button
             onClick={onAdd}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-black px-6 py-3 rounded-xl font-black transition-all uppercase tracking-wider text-sm shadow-[0_0_20px_rgba(234,88,12,0.3)]"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#FF4D00] hover:bg-[#e04400] text-black px-6 py-3 rounded-xl font-black transition-all uppercase tracking-wider text-sm shadow-[0_0_20px_rgba(255,77,0,0.3)]"
           >
             <Plus size={20} />
             Novo Acessório
@@ -211,10 +228,10 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setFilterCategoria('all')}
-          className={`px-4 py-2 rounded-full font-bold uppercase tracking-wider text-xs transition-all ${
+          className={`px-4 py-2 rounded-xl font-bold uppercase tracking-wider text-xs transition-all ${
             filterCategoria === 'all'
-              ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]'
-              : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800'
+              ? 'bg-[#FF4D00] text-black shadow-[0_0_15px_rgba(255,77,0,0.3)]'
+              : 'bg-[#191919] text-zinc-400 hover:bg-zinc-800 hover:text-white border border-[#262626]'
           }`}
         >
           Todos
@@ -223,10 +240,10 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
           <button
             key={cat}
             onClick={() => setFilterCategoria(cat)}
-            className={`px-4 py-2 rounded-full font-bold uppercase tracking-wider text-xs transition-all ${
+            className={`px-4 py-2 rounded-xl font-bold uppercase tracking-wider text-xs transition-all ${
               filterCategoria === cat
-                ? 'bg-orange-600 text-black shadow-[0_0_15px_rgba(234,88,12,0.3)]'
-                : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800'
+                ? 'bg-[#FF4D00] text-black shadow-[0_0_15px_rgba(255,77,0,0.3)]'
+                : 'bg-[#191919] text-zinc-400 hover:bg-zinc-800 hover:text-white border border-[#262626]'
             }`}
           >
             {cat}
@@ -358,20 +375,20 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredAndSortedAcessorios.map((acessorio) => {
           const currentImageIndex = currentImageIndices[acessorio.id] || 0;
+          const bfPrice = getBlackFridayPrice(acessorio);
+          const discountPct = getDiscountPercent(acessorio);
           
           return (
             <div 
               key={acessorio.id} 
-              className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800 hover:border-orange-500/50 transition-all group flex flex-col h-full cursor-pointer"
+              className="bg-[#191919] rounded-2xl overflow-hidden border border-[#262626] hover:border-[#FF4D00] transition-all group flex flex-col h-full cursor-pointer shadow-xl"
               onClick={() => navigate(`/acessorios/${acessorio.id}`)}
             >
               {/* Image Gallery */}
               <div className="relative aspect-square bg-zinc-950 overflow-hidden">
-                {acessorio.emPromocao && (
-                  <div className="absolute top-4 left-4 z-10 bg-orange-600 text-black text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-                    Promoção
-                  </div>
-                )}
+                <div className="absolute top-3 left-3 z-10 bg-[#FF4D00] text-black text-[11px] font-black px-3 py-1 rounded-md uppercase tracking-wider shadow-lg">
+                  -{discountPct}% Black Friday
+                </div>
                 
                 {acessorio.fotos.length > 0 ? (
                   <>
@@ -385,21 +402,21 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
                       <>
                         <button 
                           onClick={(e) => prevImage(e, acessorio.id, acessorio.fotos.length)}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/50 text-black md:text-white p-2 md:p-1.5 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-orange-500 md:hover:bg-orange-600 shadow-lg"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-[#FF4D00] md:bg-black/50 text-black md:text-white p-2 md:p-1.5 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-[#FF4D00] hover:text-black shadow-lg"
                         >
-                          <ChevronLeft size={28} className="md:w-5 md:h-5" />
+                          <ChevronLeft size={24} className="md:w-5 md:h-5" />
                         </button>
                         <button 
                           onClick={(e) => nextImage(e, acessorio.id, acessorio.fotos.length)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/50 text-black md:text-white p-2 md:p-1.5 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-orange-500 md:hover:bg-orange-600 shadow-lg"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#FF4D00] md:bg-black/50 text-black md:text-white p-2 md:p-1.5 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-[#FF4D00] hover:text-black shadow-lg"
                         >
-                          <ChevronRight size={28} className="md:w-5 md:h-5" />
+                          <ChevronRight size={24} className="md:w-5 md:h-5" />
                         </button>
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
                           {acessorio.fotos.map((_, idx) => (
                             <div 
                               key={idx} 
-                              className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'bg-orange-500 w-3' : 'bg-white/50'}`}
+                              className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'bg-[#FF4D00] w-3' : 'bg-white/50'}`}
                             />
                           ))}
                         </div>
@@ -415,29 +432,23 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
 
               {/* Content */}
               <div className="p-5 flex-1 flex flex-col">
-                <h3 className="text-lg font-black text-white uppercase tracking-tight mb-1 line-clamp-2">{acessorio.nome}</h3>
-                <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-4">Para: {acessorio.aplicacao}</p>
+                <h3 className="font-display text-xl font-black text-white uppercase tracking-tight mb-1 line-clamp-2">{acessorio.nome}</h3>
+                <p className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-3">Para: {acessorio.aplicacao}</p>
                 
                 <p className="text-sm text-zinc-400 line-clamp-3 mb-4 flex-1">{acessorio.descricao}</p>
                 
                 <div className="mt-auto pt-4 border-t border-zinc-800">
                   <div className="flex justify-between items-end mb-4">
                     <div>
-                      <span className="block text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Valor</span>
-                      {acessorio.emPromocao && acessorio.precoPromocional ? (
-                        <>
-                          <span className="block text-zinc-500 line-through text-xs font-bold mb-0.5">
-                            {formatCurrency(acessorio.preco)}
-                          </span>
-                          <span className="text-2xl font-black text-orange-500">
-                            {formatCurrency(acessorio.precoPromocional)}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-2xl font-black text-white">
-                          {formatCurrency(acessorio.preco)}
-                        </span>
-                      )}
+                      <span className="block text-[#FF4D00] font-bold text-[10px] uppercase tracking-widest mb-1">
+                        Black Friday (-{discountPct}%)
+                      </span>
+                      <span className="block text-zinc-500 line-through text-xs font-bold mb-0.5 tabular-nums">
+                        {formatCurrency(acessorio.preco)}
+                      </span>
+                      <span className="font-display text-2xl font-black text-white tabular-nums">
+                        {formatCurrency(bfPrice)}
+                      </span>
                     </div>
                     <div className="text-right">
                       <span className="block text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Estoque</span>
@@ -585,11 +596,9 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             
             {/* Image Section */}
             <div className="w-full md:w-1/2 bg-zinc-950 relative h-[40vh] md:h-auto min-h-[300px] flex md:flex-1 items-center justify-center shrink-0 overflow-hidden">
-              {acessorioDetails.emPromocao && (
-                <div className="absolute top-4 left-4 z-10 bg-orange-600 text-black text-xs font-black px-4 py-2 rounded-full uppercase tracking-widest shadow-lg">
-                  Promoção
-                </div>
-              )}
+              <div className="absolute top-4 left-4 z-10 bg-[#FF4D00] text-black text-xs font-black px-3.5 py-1.5 rounded-md uppercase tracking-widest shadow-lg">
+                -{getDiscountPercent(acessorioDetails)}% Black Friday
+              </div>
               {acessorioDetails.fotos.length > 0 ? (
                 <>
                   <img 
@@ -601,13 +610,13 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
                     <>
                       <button 
                         onClick={(e) => prevImage(e, acessorioDetails.id, acessorioDetails.fotos.length)}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/50 text-black md:text-white p-2.5 md:p-2 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-orange-500 md:hover:bg-orange-600 shadow-xl"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-[#FF4D00] md:bg-black/50 text-black md:text-white p-2.5 md:p-2 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-[#FF4D00] hover:text-black shadow-xl"
                       >
                         <ChevronLeft size={32} className="md:w-6 md:h-6" />
                       </button>
                       <button 
                         onClick={(e) => nextImage(e, acessorioDetails.id, acessorioDetails.fotos.length)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/50 text-black md:text-white p-2.5 md:p-2 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-orange-500 md:hover:bg-orange-600 shadow-xl"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-[#FF4D00] md:bg-black/50 text-black md:text-white p-2.5 md:p-2 rounded-full backdrop-blur-sm transition-all opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-[#FF4D00] hover:text-black shadow-xl"
                       >
                         <ChevronRight size={32} className="md:w-6 md:h-6" />
                       </button>
@@ -615,7 +624,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
                         {acessorioDetails.fotos.map((_, idx) => (
                           <div 
                             key={idx} 
-                            className={`w-2 h-2 rounded-full transition-all ${idx === (currentImageIndices[acessorioDetails.id] || 0) ? 'bg-orange-500 w-4' : 'bg-white/50'}`}
+                            className={`w-2 h-2 rounded-full transition-all ${idx === (currentImageIndices[acessorioDetails.id] || 0) ? 'bg-[#FF4D00] w-4' : 'bg-white/50'}`}
                           />
                         ))}
                       </div>
@@ -630,11 +639,11 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
             {/* Details Section */}
             <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col flex-1 overflow-y-auto">
               {acessorioDetails.categoria && (
-                <span className="text-orange-500 text-xs font-bold uppercase tracking-widest mb-2 block">
+                <span className="text-[#FF4D00] text-xs font-bold uppercase tracking-widest mb-2 block">
                   {acessorioDetails.categoria}
                 </span>
               )}
-              <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight mb-2">
+              <h2 className="font-display text-2xl md:text-3xl font-black text-white uppercase tracking-tight mb-2">
                 {acessorioDetails.nome}
               </h2>
               <p className="text-sm text-zinc-400 font-bold uppercase tracking-wider mb-6 pb-6 border-b border-zinc-800">
@@ -650,7 +659,7 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
                   <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Tags</h4>
                   <div className="flex flex-wrap gap-2">
                     {acessorioDetails.tags.map(tag => (
-                      <span key={tag} className="px-3 py-1 bg-zinc-800 text-zinc-300 text-xs rounded-full">
+                      <span key={tag} className="px-3 py-1 bg-zinc-800 text-zinc-300 text-xs rounded-lg">
                         {tag}
                       </span>
                     ))}
@@ -661,21 +670,15 @@ export default function AcessorioList({ acessorios, isAdmin, onAdd, onEdit, onDe
               <div className="mt-auto pt-6 border-t border-zinc-800">
                 <div className="flex justify-between items-end mb-6">
                   <div>
-                    <span className="block text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Valor Unitário</span>
-                    {acessorioDetails.emPromocao && acessorioDetails.precoPromocional ? (
-                      <>
-                        <span className="block text-zinc-500 line-through text-sm font-bold mb-1">
-                          {formatCurrency(acessorioDetails.preco)}
-                        </span>
-                        <span className="text-4xl font-black text-orange-500">
-                          {formatCurrency(acessorioDetails.precoPromocional)}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-4xl font-black text-white">
-                        {formatCurrency(acessorioDetails.preco)}
-                      </span>
-                    )}
+                    <span className="block text-[#FF4D00] font-bold text-[10px] uppercase tracking-widest mb-1">
+                      Black Friday (-{getDiscountPercent(acessorioDetails)}%)
+                    </span>
+                    <span className="block text-zinc-500 line-through text-sm font-bold mb-1 tabular-nums">
+                      {formatCurrency(acessorioDetails.preco)}
+                    </span>
+                    <span className="font-display text-4xl font-black text-[#FF4D00] tabular-nums">
+                      {formatCurrency(getBlackFridayPrice(acessorioDetails))}
+                    </span>
                   </div>
                   <div className="text-right">
                     <span className="block text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Disponibilidade</span>

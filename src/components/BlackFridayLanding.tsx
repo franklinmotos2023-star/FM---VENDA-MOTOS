@@ -273,7 +273,7 @@ export default function BlackFridayLanding({
           
           {/* Logo */}
           <div 
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            onClick={() => navigate('/')}
             className="flex items-center gap-3 cursor-pointer group"
           >
             <img 
@@ -281,12 +281,12 @@ export default function BlackFridayLanding({
               alt="Franklin Motos" 
               className="h-9 md:h-11 w-auto object-contain transition-transform group-hover:scale-105 duration-200" 
             />
-            <div className="hidden lg:flex flex-col border-l border-[#262626] pl-3">
-              <span className="font-display font-black text-sm tracking-widest text-[#FF4D00] uppercase">
-                FRANKLIN BLACK
+            <div className="hidden lg:flex flex-col border-l border-[#262626] pl-3 leading-tight">
+              <span className="font-display font-black text-sm tracking-wide text-white uppercase">
+                Catálogo Online
               </span>
-              <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-semibold">
-                Edição Especial 2026
+              <span className="text-[10px] text-[#FF4D00] font-semibold tracking-wide">
+                Black Friday Franklin Motos, os menores preços do Ceará
               </span>
             </div>
           </div>
@@ -294,17 +294,17 @@ export default function BlackFridayLanding({
           {/* Quick Nav Anchors */}
           <nav className="hidden md:flex items-center gap-1 lg:gap-2 text-xs font-bold uppercase tracking-wider text-zinc-300">
             <button 
-              onClick={() => navigate('/oficina')}
+              onClick={() => navigate('/')}
               className="px-4 py-2 rounded-lg text-zinc-300 hover:text-[#FF4D00] hover:bg-[#191919] transition-all flex items-center gap-1.5"
             >
-              <Wrench size={14} /> Oficina
+              Início
             </button>
-            <a 
-              href="#ofertas" 
+            <button 
+              onClick={() => navigate('/motos')}
               className="px-4 py-2 rounded-lg text-zinc-300 hover:text-[#FF4D00] hover:bg-[#191919] transition-all flex items-center gap-1.5"
             >
               <Bike size={14} /> Motos
-            </a>
+            </button>
             <button 
               onClick={() => navigate('/acessorios')}
               className="px-4 py-2 rounded-lg text-zinc-300 hover:text-[#FF4D00] hover:bg-[#191919] transition-all flex items-center gap-1.5"
@@ -1081,29 +1081,50 @@ export default function BlackFridayLanding({
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
-                        {onSimulateFinance && (
-                          <button
-                            onClick={() => onSimulateFinance(moto)}
-                            className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold uppercase transition-colors"
+                      <div className="flex flex-col gap-2">
+                        {isAdmin && onSimulateFinance ? (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => onSimulateFinance(moto)}
+                              className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold uppercase transition-colors"
+                            >
+                              Simular
+                            </button>
+                            <a
+                              href={buildWhatsAppLink(
+                                config.whatsappNumber,
+                                config.whatsappMessageTemplate,
+                                moto,
+                                selectedCouponCode
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 py-2 bg-[#FF4D00] hover:bg-[#e04400] text-black font-display font-black text-xs uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 transition-all"
+                            >
+                              <MessageCircle size={14} />
+                              Proposta
+                            </a>
+                          </div>
+                        ) : (
+                          <motion.a
+                            href={`https://wa.me/${config.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Vi a promoção da Black Friday Franklin Motos na ${moto.marcaModelo} (${moto.anoModelo}, Placa ${moto.placa}) por ${formatBRL(promoPrice)}. Quero aproveitar essa oferta!`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            whileHover={{ scale: 1.03, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+                            className="w-full py-3 bg-[#FF4D00] hover:bg-[#ff5e1a] text-black font-display font-black text-sm uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-shadow shadow-[0_0_20px_rgba(255,77,0,0.3)] hover:shadow-[0_0_28px_rgba(255,77,0,0.55)]"
                           >
-                            Simular
-                          </button>
+                            <motion.span
+                              animate={{ scale: [1, 1.2, 0.95, 1.15, 1], rotate: [0, -6, 6, -4, 0] }}
+                              transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                              className="inline-flex items-center justify-center"
+                            >
+                              <Flame size={16} />
+                            </motion.span>
+                            Quero aproveitar essa oferta
+                          </motion.a>
                         )}
-                        <a
-                          href={buildWhatsAppLink(
-                            config.whatsappNumber,
-                            config.whatsappMessageTemplate,
-                            moto,
-                            selectedCouponCode
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 py-2 bg-[#FF4D00] hover:bg-[#e04400] text-black font-display font-black text-xs uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 transition-all"
-                        >
-                          <MessageCircle size={14} />
-                          Proposta
-                        </a>
                       </div>
                     </div>
                   </div>

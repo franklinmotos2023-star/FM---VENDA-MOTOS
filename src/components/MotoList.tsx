@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Moto } from '../types';
-import { Plus, Calculator, Edit2, Trash2, Calendar, Gauge, Settings, Fuel, Info, CheckCircle2, X, ChevronLeft, ChevronRight, MessageCircle, ZoomIn, ZoomOut, RotateCcw, Maximize2 } from 'lucide-react';
+import { Moto, BlackFridayCoupon } from '../types';
+import { Plus, Calculator, Edit2, Trash2, Calendar, Gauge, Settings, Fuel, Info, CheckCircle2, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Maximize2, Flame, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface MotoListProps {
@@ -11,6 +11,8 @@ interface MotoListProps {
   isAdmin?: boolean;
   onEditMoto?: (moto: Moto) => void;
   onDeleteMoto?: (id: string) => void;
+  activeCoupon?: BlackFridayCoupon | null;
+  onClearCoupon?: () => void;
 }
 
 interface MotoCardProps {
@@ -20,10 +22,11 @@ interface MotoCardProps {
   onDeleteMoto?: (id: string) => void;
   onFinance: (moto: Moto) => void;
   onSelect: (moto: Moto) => void;
+  activeCoupon?: BlackFridayCoupon | null;
   key?: string | number;
 }
 
-function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect }: MotoCardProps) {
+function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect, activeCoupon }: MotoCardProps) {
   const [currentImg, setCurrentImg] = useState(0);
 
   const nextImg = (e: React.MouseEvent) => {
@@ -44,23 +47,55 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const promoPrice = moto.precoPromocionalBlack || moto.precoAVista;
+  const hasDiscount = Boolean(moto.precoAntigo && moto.precoAntigo > promoPrice);
+  const discountPercent = hasDiscount ? Math.round(((moto.precoAntigo! - promoPrice) / moto.precoAntigo!) * 100) : 0;
+
+  const baseWhatsappMessage = `Olá! Vi a promoção da Black Friday Franklin Motos na ${moto.marcaModelo} (${moto.anoModelo}, Placa ${moto.placa}) por ${formatCurrency(promoPrice)}. Quero aproveitar essa oferta!`;
+  const whatsappMessage = activeCoupon
+    ? `${baseWhatsappMessage} Cupom ${activeCoupon.code} (${activeCoupon.discountText}).`
+    : baseWhatsappMessage;
+  const whatsappUrl = `https://wa.me/558532332200?text=${encodeURIComponent(whatsappMessage)}`;
+
   return (
     <div 
       onClick={() => onSelect(moto)}
-      className={`bg-zinc-900 rounded-2xl overflow-hidden border flex flex-col hover:border-orange-600/50 transition-all group shadow-xl relative cursor-pointer ${
+      className={`bg-[#191919] rounded-2xl overflow-hidden border flex flex-col hover:border-[#FF4D00] transition-all group shadow-xl relative cursor-pointer ${
         moto.arquivada 
           ? 'opacity-65 border-zinc-950 grayscale-[50%] hover:grayscale-0 hover:opacity-100' 
-          : 'border-zinc-800'
+          : 'border-[#262626]'
       }`}
     >
+      {/* Valor Promocional em Cima - Chamativo Black Friday */}
+      <div className="bg-gradient-to-r from-[#FF4D00] via-[#ff6a00] to-[#FF4D00] text-black px-4 py-3 flex items-center justify-between gap-3">
+        <div>
+          <span className="block text-[10px] font-black uppercase tracking-widest text-black/80 leading-none mb-0.5">
+            {hasDiscount ? `Black Friday · -${discountPercent}% OFF` : 'Oferta Black Friday'}
+          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="font-display font-black text-2xl md:text-3xl tracking-tight tabular-nums leading-none">
+              {formatCurrency(promoPrice)}
+            </span>
+            {hasDiscount && (
+              <span className="text-xs font-bold line-through text-black/65 tabular-nums">
+                {formatCurrency(moto.precoAntigo!)}
+              </span>
+            )}
+          </div>
+        </div>
+        <span className="bg-black text-[#FF4D00] px-2.5 py-1 rounded-md font-display font-black text-xs tracking-wider uppercase shrink-0">
+          {moto.anoModelo}
+        </span>
+      </div>
+
       {isAdmin && (
-        <div className="absolute top-4 left-4 flex gap-2 z-10">
+        <div className="absolute top-20 left-4 flex gap-2 z-10">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onEditMoto?.(moto);
             }}
-            className="p-2 bg-black/60 hover:bg-orange-600 text-white hover:text-black rounded-lg transition-all border border-white/10 backdrop-blur-sm"
+            className="p-2 bg-black/70 hover:bg-[#FF4D00] text-white hover:text-black rounded-lg transition-all border border-white/10 backdrop-blur-sm"
             title="Editar"
           >
             <Edit2 size={16} />
@@ -70,7 +105,7 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
               e.stopPropagation();
               onDeleteMoto?.(moto.id);
             }}
-            className="p-2 bg-black/60 hover:bg-red-600 text-white rounded-lg transition-all border border-white/10 backdrop-blur-sm"
+            className="p-2 bg-black/70 hover:bg-red-600 text-white rounded-lg transition-all border border-white/10 backdrop-blur-sm"
             title="Excluir"
           >
             <Trash2 size={16} />
@@ -78,13 +113,7 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
         </div>
       )}
       
-      <div className="h-48 md:h-56 bg-zinc-800 relative overflow-hidden group/img">
-        {moto.precoAntigo && moto.precoAVista && moto.precoAntigo > moto.precoAVista && (
-          <div className="absolute bottom-4 left-4 bg-green-500 text-black px-3 py-1 rounded-md font-black text-sm shadow-lg z-10 flex items-center gap-1">
-            <span className="uppercase tracking-wider text-[10px]">Promo</span>
-            <span>-{Math.round(((moto.precoAntigo - moto.precoAVista) / moto.precoAntigo) * 100)}%</span>
-          </div>
-        )}
+      <div className="h-52 md:h-60 bg-zinc-900 relative overflow-hidden group/img">
         {moto.fotos && moto.fotos.length > 0 ? (
           <>
             <img 
@@ -96,21 +125,21 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
               <>
                 <button
                   onClick={prevImg}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/40 text-black md:text-white p-2 md:p-1.5 rounded-full opacity-100 md:opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-orange-500 md:hover:bg-orange-600 shadow-lg"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-[#FF4D00] md:bg-black/50 text-black md:text-white p-2 md:p-1.5 rounded-full opacity-100 md:opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-[#FF4D00] hover:text-black shadow-lg"
                 >
-                  <ChevronLeft size={28} className="md:w-5 md:h-5" />
+                  <ChevronLeft size={24} className="md:w-5 md:h-5" />
                 </button>
                 <button
                   onClick={nextImg}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-orange-600 md:bg-black/40 text-black md:text-white p-2 md:p-1.5 rounded-full opacity-100 md:opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-orange-500 md:hover:bg-orange-600 shadow-lg"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#FF4D00] md:bg-black/50 text-black md:text-white p-2 md:p-1.5 rounded-full opacity-100 md:opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-[#FF4D00] hover:text-black shadow-lg"
                 >
-                  <ChevronRight size={28} className="md:w-5 md:h-5" />
+                  <ChevronRight size={24} className="md:w-5 md:h-5" />
                 </button>
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
                   {moto.fotos.map((_, i) => (
                     <div 
                       key={i} 
-                      className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImg ? 'bg-orange-600 w-3' : 'bg-white/40'}`}
+                      className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImg ? 'bg-[#FF4D00] w-3' : 'bg-white/40'}`}
                     />
                   ))}
                 </div>
@@ -123,75 +152,50 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
           </div>
         )}
         {moto.arquivada && (
-          <div className="absolute top-4 right-20 bg-zinc-950/90 text-orange-500 border border-orange-500/30 px-2 py-1 rounded-md font-black text-[10px] tracking-widest uppercase backdrop-blur-sm z-10 shadow-lg">
+          <div className="absolute top-4 right-4 bg-zinc-950/90 text-[#FF4D00] border border-[#FF4D00]/30 px-2 py-1 rounded-md font-black text-[10px] tracking-widest uppercase backdrop-blur-sm z-10 shadow-lg">
             Arquivada
           </div>
         )}
-        <div className="absolute top-4 right-4 bg-orange-600 text-black px-3 py-1 rounded-md font-black text-sm shadow-lg z-10">
-          {moto.anoModelo}
-        </div>
       </div>
       
       <div className="p-4 md:p-6 flex-grow flex flex-col">
-        <h3 className="text-xl md:text-2xl font-black text-white mb-1 uppercase tracking-tight">{moto.marcaModelo}</h3>
-        <p className="text-orange-500 text-xs md:text-sm mb-4 md:mb-6 font-mono font-bold uppercase tracking-wider">6 MESES DE GARANTIA*</p>
-        
-        <div className="grid grid-cols-2 gap-y-2 gap-x-2 md:gap-y-4 md:gap-x-4 text-xs md:text-sm mb-6 md:mb-8">
-          <div className="bg-zinc-950 p-2 md:p-3 rounded-lg border border-zinc-800/50">
-            <span className="block text-zinc-500 text-[9px] md:text-[10px] uppercase tracking-widest mb-0.5 md:mb-1">Quilometragem</span>
-            <span className="font-bold text-zinc-100">{moto.quilometragem}</span>
-          </div>
-          <div className="bg-zinc-950 p-2 md:p-3 rounded-lg border border-zinc-800/50">
-            <span className="block text-zinc-500 text-[9px] md:text-[10px] uppercase tracking-widest mb-0.5 md:mb-1">Fabricação</span>
-            <span className="font-bold text-zinc-100">{moto.anoFabricacao}</span>
-          </div>
-          <div className="bg-zinc-950 p-2 md:p-3 rounded-lg border border-zinc-800/50">
-            <span className="block text-zinc-500 text-[9px] md:text-[10px] uppercase tracking-widest mb-0.5 md:mb-1">Status</span>
-            <span className="font-bold text-orange-500">{moto.statusRevisao}</span>
-          </div>
-          <div className="bg-zinc-950 p-2 md:p-3 rounded-lg border border-zinc-800/50">
-            <span className="block text-zinc-500 text-[9px] md:text-[10px] uppercase tracking-widest mb-0.5 md:mb-1">Documento</span>
-            <span className="font-bold text-zinc-100">{moto.statusDut}</span>
-          </div>
-        </div>
+        <h3 className="font-display text-2xl md:text-3xl font-black text-white mb-1 uppercase tracking-tight">{moto.marcaModelo}</h3>
+        <p className="text-zinc-400 text-xs mb-4 font-semibold tracking-wider">
+          {moto.quilometragem} · {moto.anoFabricacao}/{moto.anoModelo} · {moto.statusDut} · 6 meses garantia*
+        </p>
 
-        <div className="mt-auto">
-          <div className="mb-4 md:mb-6">
-            <span className="block text-zinc-500 text-[10px] md:text-xs uppercase tracking-widest mb-1">Preço à vista</span>
-            {moto.precoAntigo && moto.precoAVista && moto.precoAntigo > moto.precoAVista && (
-              <span className="block text-zinc-500 line-through text-xs md:text-sm font-bold mb-1">
-                {formatCurrency(moto.precoAntigo)}
-              </span>
-            )}
-            <span className="text-2xl md:text-3xl font-black text-white">
-              {formatCurrency(moto.precoAVista)}
-            </span>
-          </div>
-          
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onFinance(moto);
-            }}
-            className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-black py-3 md:py-4 rounded-xl font-black transition-colors uppercase tracking-wider text-xs md:text-sm shadow-[0_0_15px_rgba(234,88,12,0.2)]"
-          >
-            <Calculator size={18} />
-            {isAdmin ? 'Vender / Simular' : 'Simule sua Proposta'}
-          </button>
-
-          {!isAdmin && (
+        <div className="mt-auto pt-2">
+          {isAdmin ? (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                const formatCur = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-                const message = `Olá, tenho interesse na moto ${moto.marcaModelo} (ano ${moto.anoModelo}), anunciada por ${formatCur(moto.precoAVista)}. Gostaria de saber mais informações.`;
-                window.open(`https://wa.me/558532332200?text=${encodeURIComponent(message)}`, '_blank');
+                onFinance(moto);
               }}
-              className="w-full mt-3 flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white py-3 md:py-4 rounded-xl font-black transition-colors uppercase tracking-wider text-xs md:text-sm shadow-[0_0_15px_rgba(37,211,102,0.3)]"
+              className="w-full flex items-center justify-center gap-2 bg-[#FF4D00] hover:bg-[#e04400] text-black py-3.5 rounded-xl font-black transition-colors uppercase tracking-wider text-xs md:text-sm shadow-[0_0_15px_rgba(255,77,0,0.25)]"
             >
-              <MessageCircle size={18} />
-              Tenho Interesse
+              <Calculator size={18} />
+              Vender / Simular
             </button>
+          ) : (
+            <motion.a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              whileHover={{ scale: 1.03, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+              className="w-full flex items-center justify-center gap-2.5 bg-[#FF4D00] hover:bg-[#ff5e1a] text-black py-4 px-4 rounded-xl font-display font-black uppercase tracking-wider text-base shadow-[0_0_24px_rgba(255,77,0,0.35)] hover:shadow-[0_0_32px_rgba(255,77,0,0.6)] transition-shadow"
+            >
+              <motion.span
+                animate={{ scale: [1, 1.2, 0.95, 1.15, 1], rotate: [0, -6, 6, -4, 0] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                className="inline-flex items-center justify-center"
+              >
+                <Flame size={20} className="text-black fill-black/20" />
+              </motion.span>
+              <span>Quero aproveitar essa oferta</span>
+            </motion.a>
           )}
         </div>
       </div>
@@ -199,7 +203,7 @@ function MotoCard({ moto, isAdmin, onEditMoto, onDeleteMoto, onFinance, onSelect
   );
 }
 
-export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditMoto, onDeleteMoto }: MotoListProps) {
+export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditMoto, onDeleteMoto, activeCoupon, onClearCoupon }: MotoListProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedMoto, setSelectedMoto] = useState<Moto | null>(null);
@@ -284,17 +288,44 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">Estoque <span className="text-orange-600">Disponível</span></h2>
+        <div>
+          <span className="text-xs font-bold uppercase tracking-widest text-[#FF4D00] block mb-1">
+            Black Friday Franklin Motos
+          </span>
+          <h2 className="font-display text-3xl md:text-4xl font-black text-white uppercase tracking-tight">
+            Motos em <span className="text-[#FF4D00]">Oferta</span>
+          </h2>
+        </div>
         {isAdmin && (
           <button
             onClick={onAddMoto}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-black px-6 py-3 rounded-lg font-bold transition-colors uppercase tracking-wider text-sm shadow-[0_0_15px_rgba(234,88,12,0.3)]"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#FF4D00] hover:bg-[#e04400] text-black px-6 py-3 rounded-xl font-bold transition-colors uppercase tracking-wider text-sm shadow-[0_0_15px_rgba(255,77,0,0.3)]"
           >
             <Plus size={20} />
             Adicionar Moto
           </button>
         )}
       </div>
+
+      {activeCoupon && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#141414] border border-[#FF4D00]/40 rounded-xl px-4 py-3 text-xs">
+          <div className="flex items-center gap-2 text-zinc-200">
+            <Tag size={15} className="text-[#FF4D00] shrink-0" />
+            <span>
+              Cupom ativo nas ofertas: <strong className="text-[#FF4D00] font-mono">{activeCoupon.code}</strong> · {activeCoupon.discountText}
+            </span>
+          </div>
+          {onClearCoupon && (
+            <button
+              type="button"
+              onClick={onClearCoupon}
+              className="text-zinc-400 hover:text-white font-semibold transition-colors"
+            >
+              Remover cupom
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
         {motos.map((moto) => (
@@ -305,6 +336,7 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
             onEditMoto={onEditMoto}
             onDeleteMoto={onDeleteMoto}
             onFinance={onFinance}
+            activeCoupon={activeCoupon}
             onSelect={(m) => {
               navigate(`/motos/${m.id}`);
             }}
@@ -395,20 +427,32 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
               {/* Informações */}
               <div className="w-full md:w-1/2 p-6 md:p-10 overflow-y-auto custom-scrollbar flex-1">
                 <div className="mb-8">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="bg-orange-600 text-black px-3 py-1 rounded-md font-black text-xs uppercase tracking-widest">
+                  <div className="bg-gradient-to-r from-[#FF4D00] to-[#ff6a00] text-black p-4 rounded-2xl mb-5 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-black/80">
+                        Oferta Black Friday Franklin Motos
+                      </span>
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="font-display text-3xl sm:text-4xl font-black tabular-nums">
+                          {formatCurrency(selectedMoto.precoPromocionalBlack || selectedMoto.precoAVista)}
+                        </span>
+                        {selectedMoto.precoAntigo && selectedMoto.precoAntigo > (selectedMoto.precoPromocionalBlack || selectedMoto.precoAVista) && (
+                          <span className="text-sm font-bold line-through text-black/65 tabular-nums">
+                            {formatCurrency(selectedMoto.precoAntigo)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="bg-black text-[#FF4D00] px-3 py-1 rounded-md font-display font-black text-xs uppercase tracking-widest">
                       {selectedMoto.anoModelo}
                     </span>
-                    <span className="text-orange-500 font-mono font-bold tracking-widest text-sm uppercase">
-                      6 MESES DE GARANTIA*
-                    </span>
                   </div>
-                  <h2 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-4">
+                  <p className="text-[#FF4D00] font-bold tracking-wider text-xs uppercase mb-1">
+                    6 MESES DE GARANTIA* · {selectedMoto.statusDut}
+                  </p>
+                  <h2 className="font-display text-4xl font-black text-white uppercase tracking-tight leading-none">
                     {selectedMoto.marcaModelo}
                   </h2>
-                  <div className="text-4xl font-black text-orange-500">
-                    {formatCurrency(selectedMoto.precoAVista)}
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 mb-10">
@@ -488,18 +532,18 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => {
-                        onFinance(selectedMoto);
-                        setSelectedMoto(null);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-3 bg-orange-600 hover:bg-orange-500 text-black py-5 rounded-2xl font-black transition-all uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(234,88,12,0.3)]"
-                    >
-                      <Calculator size={24} />
-                      {isAdmin ? 'Vender / Simular' : 'Simule sua Proposta'}
-                    </button>
-                     {isAdmin && (
+                  {isAdmin ? (
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => {
+                          onFinance(selectedMoto);
+                          setSelectedMoto(null);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-3 bg-[#FF4D00] hover:bg-[#e04400] text-black py-5 rounded-2xl font-black transition-all uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(255,77,0,0.3)]"
+                      >
+                        <Calculator size={24} />
+                        Vender / Simular
+                      </button>
                       <button
                         onClick={() => {
                           onEditMoto?.(selectedMoto);
@@ -509,20 +553,28 @@ export default function MotoList({ motos, onAddMoto, onFinance, isAdmin, onEditM
                       >
                         <Edit2 size={24} />
                       </button>
-                    )}
-                  </div>
-
-                  {!isAdmin && (
-                    <button
-                      onClick={() => {
-                        const message = `Olá, tenho interesse na moto ${selectedMoto.marcaModelo} (ano ${selectedMoto.anoModelo}), anunciada por ${formatCurrency(selectedMoto.precoAVista)}. Gostaria de saber mais informações.`;
-                        window.open(`https://wa.me/558532332200?text=${encodeURIComponent(message)}`, '_blank');
-                      }}
-                      className="w-full flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#20BD5A] text-white py-4 rounded-2xl font-black transition-all uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(37,211,102,0.3)]"
+                    </div>
+                  ) : (
+                    <motion.a
+                      href={`https://wa.me/558532332200?text=${encodeURIComponent(
+                        `Olá! Vi a promoção da Black Friday Franklin Motos na ${selectedMoto.marcaModelo} (${selectedMoto.anoModelo}, Placa ${selectedMoto.placa}) por ${formatCurrency(selectedMoto.precoPromocionalBlack || selectedMoto.precoAVista)}. Quero aproveitar essa oferta!${activeCoupon ? ` Cupom ${activeCoupon.code} (${activeCoupon.discountText}).` : ''}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      whileHover={{ scale: 1.03, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+                      className="w-full flex items-center justify-center gap-3 bg-[#FF4D00] hover:bg-[#ff5e1a] text-black py-4 px-6 rounded-2xl font-display font-black transition-shadow uppercase tracking-wider text-lg shadow-[0_0_30px_rgba(255,77,0,0.4)] hover:shadow-[0_0_40px_rgba(255,77,0,0.65)]"
                     >
-                      <MessageCircle size={24} />
-                      Tenho Interesse
-                    </button>
+                      <motion.span
+                        animate={{ scale: [1, 1.2, 0.95, 1.15, 1], rotate: [0, -6, 6, -4, 0] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                        className="inline-flex items-center justify-center"
+                      >
+                        <Flame size={22} className="text-black fill-black/20" />
+                      </motion.span>
+                      <span>Quero aproveitar essa oferta</span>
+                    </motion.a>
                   )}
                 </div>
               </div>
